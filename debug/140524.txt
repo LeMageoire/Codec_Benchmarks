@@ -1,0 +1,21 @@
+(.venv) mguyot@tsf-508-wpa-6-082 Codec_Benchmarks % python3 python/main.py -i data/D -c configs/config.json -b benchmarks/config.json           
+  0%|       | Encoded: 1, Dropped: ------, ETA:  00:00:00 Elapsed Time: 0:00:00libc++abi: terminating due to uncaught exception of type nlohmann::detail::parse_error: [json.exception.parse_error.101] parse error at line 1, column 1: syntax error while parsing value - unexpected end of input; expected '[', '{', or a literal
+Traceback (most recent call last):
+  File "/Users/mguyot/Documents/Codec_Benchmarks/./libraries/DNA-Aeon/python/encode.py", line 123, in <module>
+    encode_ac(cpath, config_data, args.mode)
+  File "/Users/mguyot/Documents/Codec_Benchmarks/./libraries/DNA-Aeon/python/encode.py", line 101, in encode_ac
+    os.rename(config["encode"]["input"], "{cpath}/data/intermediates_results/{filename}_RU10.zip".format(cpath=current_path, filename=filename))
+FileNotFoundError: [Errno 2] No such file or directory: '/Users/mguyot/Documents/Codec_Benchmarks/libraries/DNA-Aeon/data/D_RU10.zip' -> '/Users/mguyot/Documents/Codec_Benchmarks/libraries/DNA-Aeon/data/intermediates_results/D_RU10.zip'
+Traceback (most recent call last):
+  File "/Users/mguyot/Documents/Codec_Benchmarks/python/main.py", line 230, in <module>
+    main()
+  File "/Users/mguyot/Documents/Codec_Benchmarks/python/main.py", line 218, in main
+    results = pipeline_benchmark(bench_file, config_file, args.fin, args.fout, path, interfolder, folder_name, args.debug)
+  File "/Users/mguyot/Documents/Codec_Benchmarks/python/main.py", line 83, in pipeline_benchmark
+    shutil.copy("encode.ini", tmp_interfolder.joinpath("encode.ini"))
+  File "/usr/local/Cellar/python@3.9/3.9.19/Frameworks/Python.framework/Versions/3.9/lib/python3.9/shutil.py", line 427, in copy
+    copyfile(src, dst, follow_symlinks=follow_symlinks)
+  File "/usr/local/Cellar/python@3.9/3.9.19/Frameworks/Python.framework/Versions/3.9/lib/python3.9/shutil.py", line 264, in copyfile
+    with open(src, 'rb') as fsrc:
+FileNotFoundError: [Errno 2] No such file or directory: 'encode.ini'
+(.venv) mguyot@tsf-508-wpa-6-082 Codec_Benchmarks % 

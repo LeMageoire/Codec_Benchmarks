@@ -1,3 +1,7 @@
+# Observations
+- [ ] it doesn't write in the correct data/ folder 
+
+
 # Design of the benchmarks
 
 - should print the start time and stop time 

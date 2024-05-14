@@ -29,10 +29,10 @@
     }
   },
   "encode": {
-    "input": "data/D",
+    "input": "/Users/mguyot/Documents/Codec_Benchmarks/data/D",
     "keep_intermediary": true,
     "min_length": 0,
-    "output": "data/encoded.fasta",
+    "output": "/Users/mguyot/Documents/Codec_Benchmarks/data/encoded.fasta",
     "same_length": true,
     "update_config": true
   },

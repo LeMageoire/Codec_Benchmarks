@@ -57,16 +57,21 @@ def pipeline_benchmark(benchmark, config, input, output, path, interfolder, fold
         package_repetition = np.linspace(benchmark["args"]["package_redundancy_min"], benchmark["args"]["package_redundancy_max"], int((benchmark["args"]["package_redundancy_step"])))
         for pkg in package_repetition:
             #we have to update the config file (valid)
-            if __debug__:
-                c_file["NOREC4DNA"]["package_redundancy"] = pkg
-                c_file["encode"]["input"] = input
-                c_file["encode"]["output"] = "encode.fasta"
-                with open(config, "w") as f:
-                    json.dump(c_file, f)
+            #if __debug__:
+            #    # I need absolute path for input and output
+            #    c_file["NOREC4DNA"]["package_redundancy"] = pkg
+            #    c_file["encode"]["input"] = str(path) + "/" + input
+            #    c_file["encode"]["output"] = str(path) + "/encode.fasta"
+            #    with open(config, "w") as f:
+            #        json.dump(c_file, f)
+            #to be solved but encode.py will stock encode.ini and encode.fasta at root of the DNA-Aeon folder
+            #and data/D is not taken into account
             if(debug):
-                py_command = ("{path}/.venv/bin/python {path}/libraries/DNA-Aeon/python/encode.py -c {config} -i {input} -o {output} -m {sys}").format(path=".", config=c_file, input=input, output=output, sys="sys")
+                #py_command = ("{path}/.venv/bin/python {path}/libraries/DNA-Aeon/python/encode.py -c {config} -i {input} -o {output} -m {sys}").format(path=".", config=config, input=input, output=output, sys="sys")
+                py_command = ("{path}/.venv/bin/python {path}/libraries/DNA-Aeon/python/encode.py -c {config} -m {sys}").format(path=".", config=config, sys="sys")
             else :
-                py_command = ("{path}/.venv/bin/python {path}/libraries/DNA-Aeon/python/encode.py -c {config} -i {input} -o {output}").format(path=".", config=c_file, input=input, output=output)
+                #py_command = ("{path}/.venv/bin/python {path}/libraries/DNA-Aeon/python/encode.py -c {config} -i {input} -o {output}").format(path=".", config=config, input=input, output=output)
+                py_command = ("{path}/.venv/bin/python {path}/libraries/DNA-Aeon/python/encode.py -c {config}").format(path=".", config=config)
             if(debug):
                 process = subprocess.Popen(py_command.split(" "), stdout=sys.stdout, stderr=sys.stderr)
             else:
@@ -81,6 +86,7 @@ def pipeline_benchmark(benchmark, config, input, output, path, interfolder, fold
             os.remove("encode.fasta")
             dict_tmp_interfolder[str(pkg)] = tmp_interfolder
             os.mkdir(tmp_interfolder.joinpath("noisy"))
+            exit(0)
         exit(0)
         return "pkg_rep done"
         for (err_rate, pkg_rep) in itertools.product(error_rate, package_repetition):
