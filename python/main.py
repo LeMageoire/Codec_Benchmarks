@@ -1,9 +1,12 @@
 
 import argparse
 import subprocess
-
-
+import pathlib
+import os
+import datetime
+import json
 import matplotlib.pyplot as plt
+import numpy as np
 
 def gen_plots(result):
     """
@@ -29,130 +32,117 @@ def gen_plots(result):
     
 def pipeline_benchmark(benchmark, config, input, output):
     """
-    pipeline of the benchmark
-    this pipeline should process the whole benchmark
+    should benchmark every combination of error rate and package repetition of the codec
     
-    - encode the input file
-    - noisy channel the encoded file
-    - decode the noisy channel file
-    - evaluate the results
-
-    for each 
+    - encoding implies :
+        - calling encode.py with a updated config file,
+        - we have to store .ini and .fasta files
+    - noisy channel implies :
+        - for every error_rate we have to generate a noisy channel file
+            - then we have to store 
+        - for every combination of error_rate and package repetition we have to generate 100 noisy channel file
+    - decoding implies :
+        - calling decode.py with a updated config file
+        - we have to do it 100 times
+        - we have to store the decoded file
+    - evaluating implies :
+        - for every decoded file we have to evaluate the ratio of success
+        - for every decoded file we have to evaluate the time of execution
+        - we have to store the results
+    - result should be a dict with the following format :
+    # "benchmark_name": "benchmark1",
+    # { "success": True,
+    #   "error_rate": 0.1, (the one given by the noise simulation)
+    #   "elapsed_time": 0.1
+    # }
 
     :benchmark: the benchmark to process
     :config: the config file to load the codec
     :input: the input file to process
     :output: the output file to store the results
     """
-
-    # result should be a dict with the following format :
-    # "benchmark_name": "benchmark1",
-    # { "success": True,
-    #   "error_rate": 0.1,
-    #   "time": 0.1
-    # }
-    result = {} # dict of results
+    result = [] # dict of results
     # benchmark is a dict
+    files_path = {"ini": "", "fasta": ""}
+    for benchmark in benchmark["benchmarks"]:
+        error_rate = np.linspace(benchmark["args"]["error_rate_min"], benchmark["args"]["error_rate_max"], int((benchmark["args"]["error_rate_step"])))
+        package_repetition = np.linspace(benchmark["args"]["package_repetition_min"], benchmark["args"]["package_repetition_max"], int((benchmark["args"]["package_repetition_step"])))
+        for pkg in package_repetition:
+            #call encode.py to genrate the .fasta file and .ini file
+            pass
+        all_comb = zip(error_rate, package_repetition)
+        print(all_comb)
+        for i in all_comb:
+            print(i)
+        
 
     # the idea is : changing the error rate doesn't need to be re-encoded so we need to encode for all pkg_rep
     # use functional programming with zip to iterate over the error rate and package repetition
-    for pkg_rep in benchmark["args"]["package_repetition"]):
-        print("calling encode.py")
-        py_command = ("{path}/.venv/bin/python {path}/libraries/DNA-Aeon/python/encode.py -c {config} -i {input} -o {output}").format(path=".", config=config, input=input, output=output)
-        process = subprocess.Popen(py_command.split(), stdout=subprocess.PIPE)
-        output, error = process.communicate()
-        print("encode.py is done")
-    for error_rate in benchmark["args"]["error_rate"]:
-        for i in range(benchmark["args"]["num_iter"]): 
-            print("calling noisy_channel.py")
-            # we have to call the encode (at path: ./libraries/DNA-Aeon/python/encode.py with parameters: -c path_to_config)
-            py_command = ("{path}/.venv/bin/python {path}/libraries/jpeg-dna-noise-models/v0.2/simulation_framework.py -c {config} -i {input} -o {output}").format(path=".", config=config, input=input, output=output)
-            process = subprocess.Popen(py_command.split(), stdout=subprocess.PIPE)
-            output, error = process.communicate()
-            print("noisy_channel.py is done")
-            print("calling decode.py")
-            # we have to call decode.py (at path: ./libraries/DNA-Aeon/python/decode.py with parameters: -c path_to_config)
-            py_command = ("{path}/.venv/bin/python {path}/libraries/DNA-Aeon/python/decode.py -c {config} -i {input} -o {output}").format(path=".", config=config, input=input, output=output)
-            time_start = time.time()
-            process = subprocess.Popen(py_command.split(), stdout=subprocess.PIPE)
-            output, error = process.communicate()
-            time_end = time.time()
-            print("decode.py is done")
-            # we have to evaluate the results (error rate, time of execution, ratio of success)
-            if decoded_correctly:
-                result["benchmark_name"]["success"] = True
-            else:
-                result["benchmark_name"]["success"] = False
-            result["benchmark_name"]["error_rate"] = error_rate
-            result["benchmark_name"]["time"] = time_end - time_start
-    # aggregate the number of decoded file + % of success
+    #for pkg_rep in benchmark["args"]["package_repetition"]:
+    #    print("calling encode.py")
+    #    py_command = ("{path}/.venv/bin/python {path}/libraries/DNA-Aeon/python/encode.py -c {config} -i {input} -o {output}").format(path=".", config=config, input=input, output=output)
+    #    process = subprocess.Popen(py_command.split(), stdout=subprocess.PIPE)
+    #    output, error = process.communicate()
+    #    print("encode.py is done")
+    #for error_rate in benchmark["args"]["error_rate"]:
+    #    for i in range(benchmark["args"]["num_iter"]): 
+    #        print("calling noisy_channel.py")
+    #        # we have to call the encode (at path: ./libraries/DNA-Aeon/python/encode.py with parameters: -c path_to_config)
+    #        py_command = ("{path}/.venv/bin/python {path}/libraries/jpeg-dna-noise-models/v0.2/simulation_framework.py -c {config} -i {input} -o {output}").format(path=".", config=config, input=input, output=output)
+    #   process = subprocess.Popen(py_command.split(), stdout=subprocess.PIPE)
+    #        output, error = process.communicate()
+    #        print("noisy_channel.py is done")
+    #         print("calling decode.py")
+    #         # we have to call decode.py (at path: ./libraries/DNA-Aeon/python/decode.py with parameters: -c path_to_config)
+    #         py_command = ("{path}/.venv/bin/python {path}/libraries/DNA-Aeon/python/decode.py -c {config} -i {input} -o {output}").format(path=".", config=config, input=input, output=output)
+    #         time_start = time.time()
+    #         process = subprocess.Popen(py_command.split(), stdout=subprocess.PIPE)
+    #         output, error = process.communicate()
+    #         time_end = time.time()
+    #         print("decode.py is done")
+    #         # we have to evaluate the results (error rate, time of execution, ratio of success)
+    #         if decoded_correctly:
+    #             result["benchmark_name"]["success"] = True
+    #         else:
+    #             result["benchmark_name"]["success"] = False
+    #         result["benchmark_name"]["error_rate"] = error_rate
+    #         result["benchmark_name"]["time"] = time_end - time_start
+    # # aggregate the number of decoded file + % of success
 
     return result
 
-
-
-
-def extract_benchmarks(json_path):
-    """
-    Extract the benchmarks data from the json file
-    the benchmarks has the following format:
-    {
-        "benchmarks": [
-            {
-                "name": "benchmark_name",
-                "args": {
-                    "arg1": "value1",
-                    "arg2": "value2",
-                    ...
-                }
-            },
-            ...
-        ]
-    }
-
-    we could use the json module to load the json file and extract the benchmarks data
-    it could holds multiple benchmarks (for flexibility) but we will only use the first one for now
-    :name: the name of the benchmark (for logging, automation of plotting)
-    :args: the arguments of the benchmark (for automation of the benchmark)
-            args1 is an error rate array
-            args2 is a number of iterations
-            args3 is package_repetition (is a % of overlapping in the dna sequence)
-    """
-    benchmarks = [] # dict of benchmarks
-    # the dict should be recorded by benchmark name
-    benchmarks.append({"name": "benchmark1", "args": {"arg1": "value1", "arg2": "value2"}})
-    benchmarks.append({"name": "benchmark2", "args": {"arg1": "value1", "arg2": "value2"}})
-    return benchmarks
-
-
 def main():
     """
-    test
+    :param: the input file to process (the file to encode + noisy + decode)
+    :param: the output file to store the results 
+    :param: the config file to load the codec (json file)
+    :param: the benchmarks file to load the benchmarks (json file)
     """
-    parser = argparse.ArgumentParser(description="test")
-    parser.add_argument("input", help="input file")
-    parser.add_argument("output", help="output file")
+    parser = argparse.ArgumentParser(description="Provide a file to process and store the results in an output file")
+    parser.add_argument('--input', '-i', dest='fin', type=str, action='store', help="input file", required=True)
+    parser.add_argument('--output', '-o', dest='fout', type=str, action='store', required=False, default="results/out.txt", help="output file to store the results")
     # argument is json_path file (config of codec), will be later given in the benchmark file for flexibility
-    parser.add_argument("config", help="config file")
+    parser.add_argument("--config", '-c', dest="codec_conf", required=True , help="config file")
     # argument is json_path file (config of benchmarks)
-    parser.add_argument("benchmarks", help="benchmarks file")
+    parser.add_argument("--benchmarks", '-b', dest='bench_conf', type=str, action='store', required=True, help="benchmarks file")
     args = parser.parse_args()
-    print(args.input)
-    print(args.output)
-
-    # extract the benchmarks data from the json file
-    benchmarks = extract_benchmarks(args.benchmarks)
-    # for each benchmark we have to process the data (encode, noisy channel, decode, evaluate, store the results)
+    # use pathlib to get the project directory (done)
+    path = pathlib.Path(__file__).parent.parent.absolute()
+    # load the config file
+    with open(args.codec_conf, "r") as f:
+        codec_conf = json.load(f)
+    # load the benchmarks file
+    with open(args.bench_conf, "r") as f:
+        bench_conf = json.load(f)
     results = []
-    for benchmark in benchmarks:
-        results.append(pipeline_benchmark(benchmark, args.config, args.input, args.output))
-    # for each benchmark we have to store the results propose to store the results in a file
+    results = pipeline_benchmark(bench_conf, codec_conf, args.fin, args.fout)
+    folder_name = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    print(folder_name)
+    newfolder = path.joinpath(str(path) + "/results/" + folder_name)
+    os.mkdir(newfolder)
+    output_path = newfolder.joinpath("results.txt")
+    with open(output_path, "w") as f:
+        f.write('\n'.join(results))
     
-    # we have to generate the plots for the benchmarks
-    for result in results:
-        gen_plots(result)
-        pass
-    print("benchmarks are done : results are stored in the output file and plots are generated in the output folder")
-
 if __name__ == "__main__":
     main()
