@@ -169,7 +169,7 @@ def main():
     """
     parser = argparse.ArgumentParser(description="Provide a file to process and store the results in an output file")
     parser.add_argument('--input', '-i', dest='fin', type=str, action='store', help="input file", required=True)
-    parser.add_argument('--output', '-o', dest='fout', type=str, action='store', required=False, default="results/out.txt", help="output file to store the results")
+    parser.add_argument('--output', '-o', dest='fout', type=str, action='store', required=False, default="results/default/out.txt", help="output file to store the results")
     # argument is json_path file (config of codec), will be later given in the benchmark file for flexibility
     parser.add_argument("--config", '-c', dest="codec_conf", required=True , help="config file")
     # argument is json_path file (config of benchmarks)
@@ -186,12 +186,15 @@ def main():
     folder_name = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     interfolder = path.joinpath(str(path) + "/intermediates_files/" + folder_name)
     os.mkdir(interfolder)
-    exit(0)
     results = []
-    results = pipeline_benchmark(bench_conf, codec_conf, args.fin, args.fout, path, interfolder)
+    #results = pipeline_benchmark(bench_conf, codec_conf, args.fin, args.fout, path, interfolder)
     newfolder = path.joinpath(str(path) + "/results/" + folder_name)
     os.mkdir(newfolder)
-    output_path = newfolder.joinpath("results.txt")
+    if(args.fout != "results/default/out.txt"):
+        output_path = newfolder.joinpath("results.txt")
+    else :
+        os.mkdir(path.joinpath(str(path) + "/results/default"))
+        output_path = args.fout
     with open(output_path, "w") as f:
         f.write('\n'.join(results))
     
