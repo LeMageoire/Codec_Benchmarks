@@ -78,6 +78,7 @@ def pipeline_benchmark(benchmark, config, input, output, path, interfolder, fold
                 process = subprocess.Popen(py_command.split(" "), stdout=subprocess.PIPE)
             output, error = process.communicate()
             process.wait()
+            exit(0)
             tmp_interfolder = interfolder.joinpath("pkg_rep_" + str(pkg))
             os.mkdir(tmp_interfolder)
             shutil.copy("encode.ini", tmp_interfolder.joinpath("encode.ini"))
