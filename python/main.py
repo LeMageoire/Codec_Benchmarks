@@ -7,6 +7,8 @@ import datetime
 import json
 import matplotlib.pyplot as plt
 import numpy as np
+import itertools
+import time
 
 def gen_plots(result):
     """
@@ -30,7 +32,7 @@ def gen_plots(result):
 
     # for the second subplot we have to plot the ratio of success for each iteration
     
-def pipeline_benchmark(benchmark, config, input, output):
+def pipeline_benchmark(benchmark, config, input, output, path, interfolder):
     """
     should benchmark every combination of error rate and package repetition of the codec
     
@@ -61,20 +63,67 @@ def pipeline_benchmark(benchmark, config, input, output):
     :input: the input file to process
     :output: the output file to store the results
     """
-    result = [] # dict of results
+    nb_iter = int(benchmark["args"]["num_iter"])
+    results = [] # dict of results
+    result = [] # dict of result
     # benchmark is a dict
     files_path = {"ini": "", "fasta": ""}
     for benchmark in benchmark["benchmarks"]:
         error_rate = np.linspace(benchmark["args"]["error_rate_min"], benchmark["args"]["error_rate_max"], int((benchmark["args"]["error_rate_step"])))
-        package_repetition = np.linspace(benchmark["args"]["package_repetition_min"], benchmark["args"]["package_repetition_max"], int((benchmark["args"]["package_repetition_step"])))
+        package_repetition = np.linspace(benchmark["args"]["package_redundancy_min"], benchmark["args"]["package_redundancy_max"], int((benchmark["args"]["package_redundancy_step"])))
         for pkg in package_repetition:
-            #call encode.py to genrate the .fasta file and .ini file
+            #call encode.py to genrate the .fasta file and .ini file that should be stored under
+            pkg_files = {"pkg_rep": {"ini": "", "fasta": ""}}
             pass
-        all_comb = zip(error_rate, package_repetition)
-        print(all_comb)
-        for i in all_comb:
-            print(i)
+        for (err_rate, pkg_rep) in itertools.product(error_rate, package_repetition):
+            for i in range(benchmark["args"]["num_iter"]):
+                # use pkg_rep .ini and .fasta files
+                f_input = pkg_files["pkg_rep"]["fasta"]
+                py_command = ("{path}/.venv/bin/python {path}/libraries/jpeg-dna-noise-models/v0.2/simulation_framework.py -c 1 -i {input} -o {output} -e {err_rate}").format(path=path, input=f_input, output=output, err_rate=err_rate)
+                process = subprocess.Popen(py_command.split(" "), stdout=subprocess.PIPE)
+                output, error = process.communicate()
+                # every file output of subprocess should be stored and = input of the next subprocess
+                # check that subprocess is done and okay before calling the next one
+            # you stored n_iter files, you have to decode them
+            decoded_correctly = 0
+            results.append({"benchmark_name": benchmark["name"]})
+            for i in range(benchmark["args"]["num_iter"]):
+                # we have to update the config file (make a copy of the original one)
+                with open(config, "r") as f:
+                    config = json.load(f)
+                    tmp_config = json.loads(config)
+                tmp_config["decode"]["input"] = ""
+                tmp_config["decode"]["output"] = ""
+                tmp_config["decode"]["metric"]["fano"]["error_probability"] = err_rate
+                tmp_config["NOREC4DNA"]["package_redundancy"] = pkg_rep
+                #store the tmp_config in a new file
+                with open("tmp_config.json", "w") as f:
+                    json.dump(tmp_config, f)
+                py_command = ("{path}/.venv/bin/python {path}/libraries/DNA-Aeon/python/decode.py -c {config} -i {input} -o {output}").format(path=".", config=config, input=input, output=output)
+                start_time = time.time()
+                process = subprocess.Popen(py_command.split(), stdout=subprocess.PIPE)
+                output, error = process.communicate()
+                # rm the config file (the one updated) 
+                process.wait()
+                end_time = time.time()
+                delta_time = end_time - start_time
+                os.remove("tmp_config.json")
+                try:
+                    with open(output, "r") as f:
+                        
+                        decoded_correctly = (decoded_correctly + 1)/nb_iter
+                except:
+                    pass
+                # 
+                result.append({"iter" : i,"success": decoded_correctly, "error_rate": err_rate, "elapsed_time": delta_time, "pkg_rep": pkg_rep})
+            results.append(result)
+            
+
+
+
         
+                
+            
 
     # the idea is : changing the error rate doesn't need to be re-encoded so we need to encode for all pkg_rep
     # use functional programming with zip to iterate over the error rate and package repetition
@@ -134,10 +183,12 @@ def main():
     # load the benchmarks file
     with open(args.bench_conf, "r") as f:
         bench_conf = json.load(f)
-    results = []
-    results = pipeline_benchmark(bench_conf, codec_conf, args.fin, args.fout)
     folder_name = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    print(folder_name)
+    interfolder = path.joinpath(str(path) + "/intermediates_files/" + folder_name)
+    os.mkdir(interfolder)
+    exit(0)
+    results = []
+    results = pipeline_benchmark(bench_conf, codec_conf, args.fin, args.fout, path, interfolder)
     newfolder = path.joinpath(str(path) + "/results/" + folder_name)
     os.mkdir(newfolder)
     output_path = newfolder.joinpath("results.txt")
