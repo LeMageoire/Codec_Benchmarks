@@ -3,14 +3,16 @@ import argparse
 import subprocess
 import pathlib
 import os
+import sys
 import datetime
 import json
 import matplotlib.pyplot as plt
 import numpy as np
 import itertools
 import time
+import shutil
 
-def pipeline_benchmark(benchmark, config, input, output, path, interfolder, folder_name):
+def pipeline_benchmark(benchmark, config, input, output, path, interfolder, folder_name, debug=False):
     """
     should benchmark every combination of error rate and package repetition of the codec
     
@@ -41,32 +43,45 @@ def pipeline_benchmark(benchmark, config, input, output, path, interfolder, fold
     :input: the input file to process
     :output: the output file to store the results
     """
-    nb_iter = int(str(benchmark["args"])["num_iter"])
+    # load the json files
+    with open(benchmark, "r") as f:
+        b_file = json.load(f)
+    with open(config, "r") as f:
+        c_file = json.load(f)
     dict_tmp_interfolder = {} #should be a dict of files and the key is the pkg_rep value as a string
     results = [] # dict of results
     result = [] # dict of result
-    #files_path = {"ini": "", "fasta": ""}
-    for benchmark in benchmark["benchmarks"]:
+    for benchmark in b_file["benchmarks"]:
+        nb_iter = int(benchmark["args"]["num_iters"])
         error_rate = np.linspace(benchmark["args"]["error_rate_min"], benchmark["args"]["error_rate_max"], int((benchmark["args"]["error_rate_step"])))
         package_repetition = np.linspace(benchmark["args"]["package_redundancy_min"], benchmark["args"]["package_redundancy_max"], int((benchmark["args"]["package_redundancy_step"])))
         for pkg in package_repetition:
-            #we have to update the config file
+            #we have to update the config file (valid)
             if __debug__:
-                print("calling encode.py")
-                print(config)
-                print(benchmark)
-
-            exit(0)
-            py_command = ("{path}/.venv/bin/python {path}/libraries/DNA-Aeon/python/encode.py -c {config} -i {input} -o {output}").format(path=".", config=config, input=input, output=output)
-            process = subprocess.Popen(py_command.split(" "), stdout=subprocess.PIPE)
+                c_file["NOREC4DNA"]["package_redundancy"] = pkg
+                c_file["encode"]["input"] = input
+                c_file["encode"]["output"] = "encode.fasta"
+                with open(config, "w") as f:
+                    json.dump(c_file, f)
+            if(debug):
+                py_command = ("{path}/.venv/bin/python {path}/libraries/DNA-Aeon/python/encode.py -c {config} -i {input} -o {output} -m {sys}").format(path=".", config=c_file, input=input, output=output, sys="sys")
+            else :
+                py_command = ("{path}/.venv/bin/python {path}/libraries/DNA-Aeon/python/encode.py -c {config} -i {input} -o {output}").format(path=".", config=c_file, input=input, output=output)
+            if(debug):
+                process = subprocess.Popen(py_command.split(" "), stdout=sys.stdout, stderr=sys.stderr)
+            else:
+                process = subprocess.Popen(py_command.split(" "), stdout=subprocess.PIPE)
             output, error = process.communicate()
             process.wait()
             tmp_interfolder = interfolder.joinpath("pkg_rep_" + str(pkg))
             os.mkdir(tmp_interfolder)
-            os.move("encode.ini", tmp_interfolder.joinpath("encode.ini"))
-            os.move("encode.fasta", tmp_interfolder.joinpath("encode.fasta"))
+            shutil.copy("encode.ini", tmp_interfolder.joinpath("encode.ini"))
+            os.remove("encode.ini")
+            shutil.copy("encode.fasta", tmp_interfolder.joinpath("encode.fasta"))
+            os.remove("encode.fasta")
             dict_tmp_interfolder[str(pkg)] = tmp_interfolder
             os.mkdir(tmp_interfolder.joinpath("noisy"))
+        exit(0)
         return "pkg_rep done"
         for (err_rate, pkg_rep) in itertools.product(error_rate, package_repetition):
             for i in range(benchmark["args"]["num_iter"]):
@@ -166,6 +181,7 @@ def main():
     parser.add_argument("--config", '-c', dest="codec_conf", required=True , help="config file")
     # argument is json_path file (config of benchmarks)
     parser.add_argument("--benchmarks", '-b', dest='bench_conf', type=str, action='store', required=True, help="benchmarks file")
+    parser.add_argument("--debug", '-d', dest='debug', action='store_true', help="debug mode")
     # add a default mode for a demonstration purpose
     # parser.add_argument("--default", '-d', dest='default', type=bool, action='store_true', help="default mode")
     args = parser.parse_args()
@@ -173,9 +189,8 @@ def main():
     path = pathlib.Path(__file__).parent.parent.absolute()
     results = []
     # load the config file
-    #if(args.default):
-    #    print("default mode")
-    #else:
+    if(args.debug):
+       print("\ndefault mode\n")
     with open(str(args.codec_conf), "r") as f:
         codec_conf = json.load(f)
     # load the benchmarks file
@@ -194,7 +209,7 @@ def main():
     config_file = config_folder.joinpath("config.json")
     interfolder = path.joinpath(str(path) + "/intermediates_files/" + folder_name)
     os.mkdir(interfolder)
-    results = pipeline_benchmark(bench_file, config_file, args.fin, args.fout, path, interfolder, folder_name)
+    results = pipeline_benchmark(bench_file, config_file, args.fin, args.fout, path, interfolder, folder_name, args.debug)
     newfolder = path.joinpath(str(path) + "/results/" + folder_name)
     os.mkdir(newfolder)
     if(args.fout != "results/default/out.txt"):

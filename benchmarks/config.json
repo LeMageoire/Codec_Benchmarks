@@ -7,8 +7,8 @@
         "error_rate_min" : 0.01,
         "error_rate_max" : 0.02,
         "error_rate_step" : 5,
-        "package_redundancy_min" : 0,
-        "package_redundancy_max" : 0.5,
+        "package_redundancy_min" : 0.0,
+        "package_redundancy_max" : 0.4,
         "package_redundancy_step" : 5,
         "num_iters" : 100
       }
