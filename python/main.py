@@ -10,29 +10,7 @@ import numpy as np
 import itertools
 import time
 
-def gen_plots(result):
-    """
-    Generate the plots for the benchmark
-    the results should holds :
-    - the error rate for each iteration
-    - the ratio of success for each iteration (decoded 100% correctly)
-    - the time of execution for each iteration (average of the N iterations)
-
-    - for each N simulations aggregated we should have two plots :
-        - one with constant error rate showing the ratio of success for each package_repetition variation
-        - one with constant package_repetition showing the ratio of success for each error rate variation
-    
-    :result: the result of the benchmark
-    """
-
-    # create 2 subplots with a global name of benchmark (for the title)
-    fig, axs = plt.subplots(2)
-    fig.suptitle("benchmark_name")
-    # for the first subplot we have to plot the error rate for each iteration
-
-    # for the second subplot we have to plot the ratio of success for each iteration
-    
-def pipeline_benchmark(benchmark, config, input, output, path, interfolder):
+def pipeline_benchmark(benchmark, config, input, output, path, interfolder, folder_name):
     """
     should benchmark every combination of error rate and package repetition of the codec
     
@@ -63,28 +41,42 @@ def pipeline_benchmark(benchmark, config, input, output, path, interfolder):
     :input: the input file to process
     :output: the output file to store the results
     """
-    nb_iter = int(benchmark["args"]["num_iter"])
+    nb_iter = int(str(benchmark["args"])["num_iter"])
+    dict_tmp_interfolder = {} #should be a dict of files and the key is the pkg_rep value as a string
     results = [] # dict of results
     result = [] # dict of result
-    # benchmark is a dict
-    files_path = {"ini": "", "fasta": ""}
+    #files_path = {"ini": "", "fasta": ""}
     for benchmark in benchmark["benchmarks"]:
         error_rate = np.linspace(benchmark["args"]["error_rate_min"], benchmark["args"]["error_rate_max"], int((benchmark["args"]["error_rate_step"])))
         package_repetition = np.linspace(benchmark["args"]["package_redundancy_min"], benchmark["args"]["package_redundancy_max"], int((benchmark["args"]["package_redundancy_step"])))
         for pkg in package_repetition:
-            #call encode.py to genrate the .fasta file and .ini file that should be stored under
-            pkg_files = {"pkg_rep": {"ini": "", "fasta": ""}}
-            pass
+            #we have to update the config file
+            if __debug__:
+                print("calling encode.py")
+                print(config)
+                print(benchmark)
+
+            exit(0)
+            py_command = ("{path}/.venv/bin/python {path}/libraries/DNA-Aeon/python/encode.py -c {config} -i {input} -o {output}").format(path=".", config=config, input=input, output=output)
+            process = subprocess.Popen(py_command.split(" "), stdout=subprocess.PIPE)
+            output, error = process.communicate()
+            process.wait()
+            tmp_interfolder = interfolder.joinpath("pkg_rep_" + str(pkg))
+            os.mkdir(tmp_interfolder)
+            os.move("encode.ini", tmp_interfolder.joinpath("encode.ini"))
+            os.move("encode.fasta", tmp_interfolder.joinpath("encode.fasta"))
+            dict_tmp_interfolder[str(pkg)] = tmp_interfolder
+            os.mkdir(tmp_interfolder.joinpath("noisy"))
+        return "pkg_rep done"
         for (err_rate, pkg_rep) in itertools.product(error_rate, package_repetition):
             for i in range(benchmark["args"]["num_iter"]):
-                # use pkg_rep .ini and .fasta files
-                f_input = pkg_files["pkg_rep"]["fasta"]
+                f_input = dict_tmp_interfolder[str(pkg_rep)].joinpath("encode.fasta") 
                 py_command = ("{path}/.venv/bin/python {path}/libraries/jpeg-dna-noise-models/v0.2/simulation_framework.py -c 1 -i {input} -o {output} -e {err_rate}").format(path=path, input=f_input, output=output, err_rate=err_rate)
                 process = subprocess.Popen(py_command.split(" "), stdout=subprocess.PIPE)
                 output, error = process.communicate()
-                # every file output of subprocess should be stored and = input of the next subprocess
-                # check that subprocess is done and okay before calling the next one
-            # you stored n_iter files, you have to decode them
+                process.wait()
+                # store the noisy channel file in the interfolder/tmp_interfolder/noisy folder
+                os.move("output_fasta", dict_tmp_interfolder[str(pkg_rep)].joinpath("/noisy/").joinpath("noisy_"+str(i)+'_'+str(err_rate)+'_'+str(pkg_rep)+".fasta"))
             decoded_correctly = 0
             results.append({"benchmark_name": benchmark["name"]})
             for i in range(benchmark["args"]["num_iter"]):
@@ -174,20 +166,35 @@ def main():
     parser.add_argument("--config", '-c', dest="codec_conf", required=True , help="config file")
     # argument is json_path file (config of benchmarks)
     parser.add_argument("--benchmarks", '-b', dest='bench_conf', type=str, action='store', required=True, help="benchmarks file")
+    # add a default mode for a demonstration purpose
+    # parser.add_argument("--default", '-d', dest='default', type=bool, action='store_true', help="default mode")
     args = parser.parse_args()
     # use pathlib to get the project directory (done)
     path = pathlib.Path(__file__).parent.parent.absolute()
+    results = []
     # load the config file
-    with open(args.codec_conf, "r") as f:
+    #if(args.default):
+    #    print("default mode")
+    #else:
+    with open(str(args.codec_conf), "r") as f:
         codec_conf = json.load(f)
     # load the benchmarks file
-    with open(args.bench_conf, "r") as f:
+    with open(str(args.bench_conf), "r") as f:
         bench_conf = json.load(f)
     folder_name = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    bench_folder = path.joinpath(str(path) + "/benchmarks/" + folder_name)
+    os.mkdir(bench_folder)
+    with open(bench_folder.joinpath("config.json"), "w") as f:
+        json.dump(bench_conf, f)
+    bench_file = bench_folder.joinpath("config.json")
+    config_folder = path.joinpath(str(path) + "/configs/" + folder_name)
+    os.mkdir(config_folder)
+    with open(config_folder.joinpath("config.json"), "w") as f:
+        json.dump(codec_conf, f)
+    config_file = config_folder.joinpath("config.json")
     interfolder = path.joinpath(str(path) + "/intermediates_files/" + folder_name)
     os.mkdir(interfolder)
-    results = []
-    #results = pipeline_benchmark(bench_conf, codec_conf, args.fin, args.fout, path, interfolder)
+    results = pipeline_benchmark(bench_file, config_file, args.fin, args.fout, path, interfolder, folder_name)
     newfolder = path.joinpath(str(path) + "/results/" + folder_name)
     os.mkdir(newfolder)
     if(args.fout != "results/default/out.txt"):
