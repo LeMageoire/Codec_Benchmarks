@@ -1,6 +1,12 @@
 .venv
+.artifacts
 results/*
 benchmarks/2024*
 configs/2024*
 .DS_Store
 data/D_RU10.zip
+.vscode/settings.json
+.vscode/
+intermediate_config.json
+data/*.ini
+intermediates_files/*

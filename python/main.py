@@ -11,6 +11,7 @@ import numpy as np
 import itertools
 import time
 import shutil
+import logging
 
 def pipeline_benchmark(benchmark, config, input, output, path, interfolder, folder_name, debug=False):
     """
@@ -78,59 +79,69 @@ def pipeline_benchmark(benchmark, config, input, output, path, interfolder, fold
                 process = subprocess.Popen(py_command.split(" "), stdout=subprocess.PIPE)
             output, error = process.communicate()
             process.wait()
-            exit(0)
+            if __debug__:
+                print(interfolder)
             tmp_interfolder = interfolder.joinpath("pkg_rep_" + str(pkg))
             os.mkdir(tmp_interfolder)
-            shutil.copy("encode.ini", tmp_interfolder.joinpath("encode.ini"))
-            os.remove("encode.ini")
-            shutil.copy("encode.fasta", tmp_interfolder.joinpath("encode.fasta"))
-            os.remove("encode.fasta")
+            shutil.copy("data/encoded.ini", tmp_interfolder.joinpath("encode.ini"))
+            os.remove("data/encoded.ini")
+            shutil.copy("data/encoded.fasta", tmp_interfolder.joinpath("encode.fasta"))
+            os.remove("data/encoded.fasta")
             dict_tmp_interfolder[str(pkg)] = tmp_interfolder
             os.mkdir(tmp_interfolder.joinpath("noisy"))
-            exit(0)
-        exit(0)
-        return "pkg_rep done"
+        if __debug__:
+            print("all the encode.ini and encode.fasta are stored in the intermediates_files/timestamp_pkg_val folder")
         for (err_rate, pkg_rep) in itertools.product(error_rate, package_repetition):
-            for i in range(benchmark["args"]["num_iter"]):
+            logging.info(dict_tmp_interfolder.items())
+            for i in range(benchmark["args"]["num_iters"]):
                 f_input = dict_tmp_interfolder[str(pkg_rep)].joinpath("encode.fasta") 
-                py_command = ("{path}/.venv/bin/python {path}/libraries/jpeg-dna-noise-models/v0.2/simulation_framework.py -c 1 -i {input} -o {output} -e {err_rate}").format(path=path, input=f_input, output=output, err_rate=err_rate)
+                py_command = ("{path}/.venv/bin/python {path}/simulation_framework.py -c 1 -i {input} -e {err_rate}").format(path=path.joinpath("libraries/jpeg-dna-noise-models/v0.2"), input=f_input, err_rate=err_rate)
                 process = subprocess.Popen(py_command.split(" "), stdout=subprocess.PIPE)
                 output, error = process.communicate()
                 process.wait()
                 # store the noisy channel file in the interfolder/tmp_interfolder/noisy folder
-                os.move("output_fasta", dict_tmp_interfolder[str(pkg_rep)].joinpath("/noisy/").joinpath("noisy_"+str(i)+'_'+str(err_rate)+'_'+str(pkg_rep)+".fasta"))
-            decoded_correctly = 0
-            results.append({"benchmark_name": benchmark["name"]})
-            for i in range(benchmark["args"]["num_iter"]):
-                # we have to update the config file (make a copy of the original one)
-                with open(config, "r") as f:
-                    config = json.load(f)
-                    tmp_config = json.loads(config)
-                tmp_config["decode"]["input"] = ""
-                tmp_config["decode"]["output"] = ""
-                tmp_config["decode"]["metric"]["fano"]["error_probability"] = err_rate
-                tmp_config["NOREC4DNA"]["package_redundancy"] = pkg_rep
-                #store the tmp_config in a new file
-                with open("tmp_config.json", "w") as f:
-                    json.dump(tmp_config, f)
-                py_command = ("{path}/.venv/bin/python {path}/libraries/DNA-Aeon/python/decode.py -c {config} -i {input} -o {output}").format(path=".", config=config, input=input, output=output)
-                start_time = time.time()
-                process = subprocess.Popen(py_command.split(), stdout=subprocess.PIPE)
-                output, error = process.communicate()
-                # rm the config file (the one updated) 
-                process.wait()
-                end_time = time.time()
-                delta_time = end_time - start_time
-                os.remove("tmp_config.json")
-                try:
-                    with open(output, "r") as f:
+                # inside the interfolder/tmp_interfolder/noisy we should add a folder named noisy_ + err_rate value
+                noisy_dir = dict_tmp_interfolder[str(pkg_rep)].joinpath("noisy", "noisy_" + str(err_rate))
+                if not os.path.exists(noisy_dir):
+                    os.mkdir(noisy_dir)
+                #we should check output_fasta name ?
+                noisy_file = "/Users/mguyot/Documents/Codec_Benchmarks/libraries/jpeg-dna-noise-models/v0.2/output_fasta/consensus/consensus_encode_c1.fasta"
+                shutil.move(noisy_file, noisy_dir.joinpath("noisy_"+str(i)+'_'+str(err_rate)+'_'+str(pkg_rep)+".fasta"))
+            if __debug__ :
+                print("100 noisy done we need it 25 times")
+            # results.append({"benchmark_name": benchmark["name"]})
+            # for i in range(benchmark["args"]["num_iter"]):
+            #     # we have to update the config file (make a copy of the original one)
+            #     with open(config, "r") as f:
+            #         config = json.load(f)
+            #         tmp_config = json.loads(config)
+            #     tmp_config["decode"]["input"] = ""
+            #     tmp_config["decode"]["output"] = ""
+            #     tmp_config["decode"]["metric"]["fano"]["error_probability"] = err_rate
+            #     tmp_config["NOREC4DNA"]["package_redundancy"] = pkg_rep
+            #     #store the tmp_config in a new file
+            #     with open("tmp_config.json", "w") as f:
+            #         json.dump(tmp_config, f)
+            #     py_command = ("{path}/.venv/bin/python {path}/libraries/DNA-Aeon/python/decode.py -c {config} -i {input} -o {output}").format(path=".", config=config, input=input, output=output)
+            #     start_time = time.time()
+            #     process = subprocess.Popen(py_command.split(), stdout=subprocess.PIPE)
+            #     output, error = process.communicate()
+            #     # rm the config file (the one updated) 
+            #     process.wait()
+            #     end_time = time.time()
+            #     delta_time = end_time - start_time
+            #     os.remove("tmp_config.json")
+            #     try:
+            #         with open(output, "r") as f:
                         
-                        decoded_correctly = (decoded_correctly + 1)/nb_iter
-                except:
-                    pass
-                # 
-                result.append({"iter" : i,"success": decoded_correctly, "error_rate": err_rate, "elapsed_time": delta_time, "pkg_rep": pkg_rep})
-            results.append(result)
+            #             decoded_correctly = (decoded_correctly + 1)/nb_iter
+            #     except:
+            #         pass
+            #     # 
+            #     result.append({"iter" : i,"success": decoded_correctly, "error_rate": err_rate, "elapsed_time": delta_time, "pkg_rep": pkg_rep})
+            # results.append(result)
+        return "noisy_done"
+            
             
 
 
@@ -196,6 +207,8 @@ def main():
     path = pathlib.Path(__file__).parent.parent.absolute()
     results = []
     # load the config file
+    # Setup basic logging
+    logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
     if(args.debug):
        print("\ndefault mode\n")
     with open(str(args.codec_conf), "r") as f:
