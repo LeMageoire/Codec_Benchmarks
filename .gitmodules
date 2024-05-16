@@ -1,7 +1,7 @@
 [submodule "libraries/DNA-Aeon"]
 	path = libraries/DNA-Aeon
 	url = git@github.com:LeMageoire/DNA-Aeon.git
-	branch = dev_mac
+	branch = main
 [submodule "libraries/jpeg-dna-noise-models"]
 	path = libraries/jpeg-dna-noise-models
 	url = git@gitlab.com:wg1/jpeg-dna/jpeg-dna-noise-models.git
