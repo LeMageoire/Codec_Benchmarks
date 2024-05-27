@@ -50,7 +50,7 @@
     }
   },
   "NOREC4DNA": {
-    "chunk_size": 250,
+    "chunk_size": 20,
     "package_redundancy": 0.4,
     "insert_header": true,
     "header_crc_length": 8,

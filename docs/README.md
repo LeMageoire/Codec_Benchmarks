@@ -1,4 +1,14 @@
 # Update
+## 27-05-24
+
+
+## 22-05-24
+- [ ] Decoding part
+    - Shortcut fused
+    - doesn't reencode
+
+
+---
 
 # Observations
 - [ ] it doesn't write in the correct data/ folder 
