@@ -1,0 +1,16 @@
+version: '3.8'
+services:
+  myapp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - HOST_DATA_PATH=${HOST_DATA_PATH}
+    image: ${IMAGE_NAME}
+    volumes:
+      - ${HOST_DATA_PATH}:/path/in/container
+    ports:
+      - "${HOST_PORT}:5000"
+
+volumes:
+  mydata:
