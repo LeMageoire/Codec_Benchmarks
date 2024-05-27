@@ -31,7 +31,7 @@ def decode_iter(config, pkg_rep, err_rate, i, nb_iter, decoded_correctly, j):
         j_config["NOREC4DNA"]["package_redundancy"] = pkg_rep
     with open("tmp_config.json", "w") as f:
         json.dump(j_config, f)
-    py_command = ("{path}/.venv/bin/python {path}/libraries/DNA-Aeon/python/decode.py -c {config}").format(path=".", config="tmp_config.json")
+    py_command = ("{path}/.venv/bin/python {path}/libraries/Custom-DNA-Aeon/python/decode.py -c {config}").format(path=".", config="tmp_config.json")
     #py_command = ("{path}/.venv/bin/python {path}/libraries/DNA-Aeon/python/decode.py -c {config} -m {sys}").format(path=".", config="tmp_config.json", sys="sys")
     #start_time = time.time()
     logging.info("calling decode.py")
@@ -156,10 +156,10 @@ def pipeline_benchmark(benchmark, config, ff_input, output, path, interfolder, f
                 #and data/D is not taken into account
                 if(debug):
                     #py_command = ("{path}/.venv/bin/python {path}/libraries/DNA-Aeon/python/encode.py -c {config} -i {input} -o {output} -m {sys}").format(path=".", config=config, input=input, output=output, sys="sys")
-                    py_command = ("{path}/.venv/bin/python {path}/libraries/DNA-Aeon/python/encode.py -c {config} -m {sys}").format(path=".", config=config, sys="sys")
+                    py_command = ("{path}/.venv/bin/python {path}/libraries/Custom-DNA-Aeon/python/encode.py -c {config} -m {sys}").format(path=".", config=config, sys="sys")
                 else :
                     #py_command = ("{path}/.venv/bin/python {path}/libraries/DNA-Aeon/python/encode.py -c {config} -i {input} -o {output}").format(path=".", config=config, input=input, output=output)
-                    py_command = ("{path}/.venv/bin/python {path}/libraries/DNA-Aeon/python/encode.py -c {config}").format(path=".", config=config)
+                    py_command = ("{path}/.venv/bin/python {path}/libraries/Custom-DNA-Aeon/python/encode.py -c {config}").format(path=".", config=config)
                 if(debug):
                     process = subprocess.Popen(py_command.split(" "), stdout=sys.stdout, stderr=sys.stderr)
                 else:
@@ -183,7 +183,7 @@ def pipeline_benchmark(benchmark, config, ff_input, output, path, interfolder, f
                 #logging.info(dict_tmp_interfolder.items())
                 for i in range(benchmark["args"]["num_iters"]):
                     f_input = dict_tmp_interfolder[str(pkg_rep)].joinpath("encode.fasta") 
-                    py_command = ("{path}/.venv/bin/python {path}/simulation_framework.py -c 1 -i {input} -e {err_rate}").format(path=path.joinpath("libraries/jpeg-dna-noise-models/v0.2"), input=f_input, err_rate=err_rate)
+                    py_command = ("{path}/.venv/bin/python {path}/simulation_framework.py -c 1 -i {input} -e {err_rate}").format(path=path.joinpath("libraries/fork-jpeg-dna-noise-models/v0.2"), input=f_input, err_rate=err_rate)
                     process = subprocess.Popen(py_command.split(" "), stdout=subprocess.PIPE)
                     #process = subprocess.Popen(py_command.split(), stdout=sys.stdout, stderr=sys.stderr)
                     output, error = process.communicate()
@@ -195,7 +195,7 @@ def pipeline_benchmark(benchmark, config, ff_input, output, path, interfolder, f
                         #input()
                         print("calling combine_consensus_and_original.py")
                         #print(f"original: {f_input}")
-                    py_command = ("{path}/.venv/bin/python {path}/libraries/jpeg-dna-noise-models/scripts/combine_consensus_and_original.py {original} {consensus}").format(path=".", original=f_input, consensus="/Users/mguyot/Documents/Codec_Benchmarks/libraries/jpeg-dna-noise-models/v0.2/output_fasta/consensus/consensus_encode_c1.fasta")
+                    py_command = ("{path}/.venv/bin/python {path}/libraries/fork-jpeg-dna-noise-models/scripts/combine_consensus_and_original.py {original} {consensus}").format(path=".", original=f_input, consensus="/Users/mguyot/Documents/Codec_Benchmarks/libraries/jpeg-dna-noise-models/v0.2/output_fasta/consensus/consensus_encode_c1.fasta")
                     process = subprocess.Popen(py_command.split(" "), stdout=subprocess.PIPE)
                     # store the noisy channel file in the interfolder/tmp_interfolder/noisy folder
                     # inside the interfolder/tmp_interfolder/noisy we should add a folder named noisy_ + err_rate value
@@ -205,7 +205,7 @@ def pipeline_benchmark(benchmark, config, ff_input, output, path, interfolder, f
                     if not os.path.exists(noisy_dir):
                         os.mkdir(noisy_dir)
                     #we should check output_fasta name ?
-                    noisy_file = "/Users/mguyot/Documents/Codec_Benchmarks/libraries/jpeg-dna-noise-models/v0.2/output_fasta/consensus/combined.fasta"
+                    noisy_file = "/Users/mguyot/Documents/Codec_Benchmarks/libraries/fork-jpeg-dna-noise-models/v0.2/output_fasta/consensus/combined.fasta"
                     try :
                         shutil.move(noisy_file, noisy_dir.joinpath("noisy_"+str(i)+'_'+str(err_rate)+'_'+str(pkg_rep)+".fasta"))
                     except:
