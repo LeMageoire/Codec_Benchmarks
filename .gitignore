@@ -13,3 +13,4 @@ intermediates_files/*
 data/DEC_0_0.01_0.0.zip
 .env
 tmp_config.json
+.DS_Store
