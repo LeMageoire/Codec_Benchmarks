@@ -23,7 +23,7 @@ def decode_iter(config, pkg_rep, err_rate, i, nb_iter, decoded_correctly, j, log
     
     with open(config_path, "r") as f:
         j_config = json.load(f)
-        intermediate_path = base_path / "Codec_Benchmarks" / "intermediates_files" / "2024-05-22_11-55-42" / f"pkg_rep_{pkg_rep}"
+        intermediate_path = interfolder / f"pkg_rep_{pkg_rep}"
         j_config["decode"]["NOREC4DNA_config"] = str(intermediate_path / "encode.ini")
         j_config["decode"]["input"] = str(intermediate_path / "noisy" / f"noisy_{err_rate}" / f"noisy_{i}_{err_rate}_{pkg_rep}.fasta")
         j_config["decode"]["output"] = str(base_path / "Codec_Benchmarks" / "results" / f"{i}_{err_rate}_{pkg_rep}")
@@ -63,7 +63,6 @@ def decode_step(interfolder, config, error_rate, package_repetition, benchmark, 
     """
     logger.debug(interfolder)
     logger.debug(config)
-    noisy_dir = "/Users/mguyot/Documents/Codec_Benchmarks/intermediates_files/2024-05-22_11-55-42"
     logger.info("Starting decoding process directly due to skip_encode flag.")
     j = 0
     skip_first = True
@@ -210,6 +209,13 @@ def corr_codec_conf(codec_conf, base_path):
     codec_conf["general"]["codebook"]["motifs"] = str(base_path / "configs/codewords/cw_40_60_hp3.json")
     codec_conf["general"]["codebook"]["words"] = str(base_path / "configs/codewords/cw_40_60_hp3.fasta")
 
+def check_directory_exists(path, logger):
+    """Check if a directory exists."""
+    if not path.exists():
+        logger.error(f"Directory does not exist: {path}")
+        return False
+    return True
+
 def main():
     """
     :param: the input file to process (the file to encode + noisy + decode)
@@ -225,6 +231,9 @@ def main():
     # argument is json_path file (config of benchmarks)
     parser.add_argument("--benchmarks", '-b', dest='bench_conf', type=str, action='store', required=True, help="benchmarks file")
     parser.add_argument("--debug", '-d', dest='debug', action='store_true', help="debug mode")
+    parser.add_argument("--skip_encode", '-s', dest='skip_encode', action='store_true', help="skip encoding")
+    parser.add_argument("--timestamp", '-t', dest='timestamp', type=str, action='store', help="add a timestamp to the directories")
+    parser.add_argument("--skip_decode", '-S', dest='skip_decode', action='store_true', help="skip decoding")
     # add a default mode for a demonstration purpose
     # parser.add_argument("--default", '-d', dest='default', type=bool, action='store_true', help="default mode")
     args = parser.parse_args()
@@ -249,17 +258,41 @@ def main():
     # load the benchmarks file
     with open(str(args.bench_conf), "r") as f:
         bench_conf = json.load(f)
-    corr_codec_conf(codec_conf, base_path)
-    folder_name = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    logger.info("folder name: " + folder_name)
-    logger.info(codec_conf)
-    bench_file, config_file, interfolder, results_folder = setup_directories(base_path, codec_conf, bench_conf)
-    logger.info("directories are set up")
+    if args.skip_encode:
+        if args.timestamp:
+            logging.info(f"Using timestamp: {args.timestamp}")
+            bench_file = base_path / "benchmarks" / args.timestamp / "config.json"
+            config_file = base_path / "configs" / args.timestamp / "config.json"
+            interfolder = base_path / "intermediates_files" / args.timestamp
+            results_folder = base_path / "results" / args.timestamp
+            # Check if the directories exist
+            for folder in [bench_file.parent, config_file.parent, interfolder, results_folder]:
+                if not check_directory_exists(folder, logger):
+                    logger.error(f"Required folder does not exist: {folder}")
+                    sys.exit(1)  
+            logger.info("All required directories exist, proceeding with decoding...")
+            results = pipeline_benchmark(bench_file, config_file, args.fin, args.fout, base_path, interfolder, args.timestamp, logger, args.debug, skip_encode=True)
+            logger.info("Decoding completed")
+        else:
+            logger.error("Timestamp is required when skipping the encoding step.")
+            sys.exit(1)
+    else:
+        logging.info("as skip_encode is not set, we will encode the file, so we need to create time-stamped directories")
+        corr_codec_conf(codec_conf, base_path)
+        folder_name = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        logger.info("folder name: " + folder_name)
+        logger.info(codec_conf)
+        bench_file, config_file, interfolder, results_folder = setup_directories(base_path, codec_conf, bench_conf)
+        logger.info("directories are set up")
     logger.info("start the pipeline")
-    results = pipeline_benchmark(bench_file, config_file, args.fin, args.fout, base_path, interfolder, folder_name, logger, args.debug)
+    results = pipeline_benchmark(bench_file, config_file, args.fin, args.fout, base_path, interfolder, folder_name, logger, args.debug, args.skip_encode)
     print(f"results will be stored in results.json in {results_folder}".format(results_folder))
-    with open(results_folder / "results.json", "w") as f:
-        json.dump(results, f, indent=4)
-
+    
+    # Assuming results are stored in JSON
+    if results_folder:
+        results_path = results_folder / "results.json"
+        with open(results_path, "w") as f:
+            json.dump(results, f, indent=4)
+        logger.info(f"Results will be stored in {results_path}")
 if __name__ == "__main__":
     main()
