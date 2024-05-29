@@ -13,87 +13,69 @@ import time
 import shutil
 import logging
 
-def decode_iter(config, pkg_rep, err_rate, i, nb_iter, decoded_correctly, j, logger):
+def decode_iter(config, pkg_rep, err_rate, i, nb_iter, decoded_correctly, j, logger, base_path, interfolder):
     """
-    decode a single file and if it's decoded correctly increment the counter
-    note: the config file is hardcoded for now
-    note: we can tweak the full decode
-    note: we could add the time of execution
-
+    Decode a single file and if it's decoded correctly, increment the counter.
+    Uses the base_path to build file paths, making the function adaptable to any machine.
     """
-    logger.info("iteration: " + str(i))
-    with open(config, "r") as f:
+    logger.info(f"Iteration: {i}")
+    config_path = base_path / config
+    
+    with open(config_path, "r") as f:
         j_config = json.load(f)
-        j_config["decode"]["NOREC4DNA_config"] = "/Users/mguyot/Documents/Codec_Benchmarks/intermediates_files/2024-05-22_11-55-42/pkg_rep_" + str(pkg_rep) + "/encode.ini"
-        j_config["decode"]["input"] = "/Users/mguyot/Documents/Codec_Benchmarks/intermediates_files/2024-05-22_11-55-42/pkg_rep_" + str(pkg_rep) + "/noisy"+"/noisy_" + str(err_rate) + "/noisy_" + str(i) + "_" + str(err_rate) + "_" + str(pkg_rep) + ".fasta"
-        j_config["decode"]["output"] = "/Users/mguyot/Documents/Codec_Benchmarks/results/"+ str(i) + '_' + str(err_rate) + '_' + str(pkg_rep)  
-        #tmp_config["decode"]["metric"]["fano"]["error_probability"] = err_rate
-        j_config["NOREC4DNA"]["package_redundancy"] = pkg_rep
-    with open("tmp_config.json", "w") as f:
+        j_config["decode"]["NOREC4DNA_config"] = interfolder / f"pkg_rep_{pkg_rep}" / "encode.ini"
+        j_config["decode"]["input"] = interfolder / f"pkg_rep_{pkg_rep}" / "noisy" / f"noisy_{err_rate}" / f"noisy_{i}_{err_rate}_{pkg_rep}.fasta"
+        j_config["decode"]["output"] = base_path / "results" / f"{i}_{err_rate}_{pkg_rep}"
+
+    temp_config_path = base_path / "tmp_config.json"
+    with open(temp_config_path, "w") as f:
         json.dump(j_config, f)
-    py_command = ("{path}/.venv/bin/python {path}/libraries/Custom-DNA-Aeon/python/decode.py -c {config}").format(path=".", config="tmp_config.json")
-    #py_command = ("{path}/.venv/bin/python {path}/libraries/DNA-Aeon/python/decode.py -c {config} -m {sys}").format(path=".", config="tmp_config.json", sys="sys")
-    #start_time = time.time()
-    logger.info("calling decode.py")
+    
+    python_env_path = base_path / ".venv" / "bin" / "python"
+    decode_script_path = base_path / "libraries" / "Custom-DNA-Aeon" / "python" / "decode.py"
+    py_command = f"{python_env_path} {decode_script_path} -c {temp_config_path}"
+    logger.info("Calling decode.py")
     process = subprocess.Popen(py_command.split(" "), stdout=subprocess.PIPE)
-    #process = subprocess.Popen(py_command.split(" "), stdout=sys.stdout, stderr=sys.stderr)
     output, error = process.communicate()
     logger.info("decode.py is done")
-    output_file = "/Users/mguyot/Documents/Codec_Benchmarks/results/"+ str(i) + '_' + str(err_rate) + '_' + str(pkg_rep) + "/decoded.fasta"
     process.wait()
-    #end_time = time.time()
-    #delta_time = end_time - start_time
-    os.remove("tmp_config.json")
-    py_command = ("{path}/.venv/bin/python {path}/python/compare_file.py -r {tocomp} -i {original}").format(path=".", tocomp="./data/D", original="./data/tmp/D")
+    temp_config_path.unlink(missing_ok=True)  # Use unlink for pathlib
+    compare_script_path = base_path / "python" / "compare_file.py"
+    py_command = f"{python_env_path} {compare_script_path} -r ./data/D -i ./data/tmp/D"
     process = subprocess.Popen(py_command.split(" "), stdout=subprocess.PIPE)
     output, error = process.communicate()
     process.wait()
     if process.returncode == 0:
-        logger.info("decoded correctly")
-        decoded_correctly = ((decoded_correctly + 1)/nb_iter) * 100
-        logger.info(decoded_correctly)
-    with open("results.txt", "a") as f:
-        f.write("decoded correctly: "+ str(j) + " " + str(i)+ "%\n")
-        f.flush()
-    try :
-        os.remove("./data/D")
-    except:
-        print("no file to remove")
-    logger.info("one iteration done")
+        decoded_correctly += 1
+        logger.info(f"Decoded correctly: {decoded_correctly}")
+    try:
+        (base_path / "data" / "D").unlink()
+    except FileNotFoundError:
+        logger.info("No file to remove")
+    logger.info("One iteration completed")
 
-def decode_step(interfolder, config, error_rate, package_repetition, benchmark, nb_iter, logger):
+def decode_step(interfolder, config, error_rate, package_repetition, benchmark, nb_iter, logger, results, base_path):
     """
-    this function is executing the decode.py for every noisy file generated
-    for every combination of error rate and package repetition (cardinal_product)
-
-    note: noisy_dir is hardcoded for now
-
-    :param: interfolder: the folder where the noisy files are stored
-    :param: config: the config file to load the codec
-    :param: error_rate: the error rate to simulate
-    :param: package_repetition: the package repetition to simulate
-    :param: benchmark: the benchmark(.json file)
+    Updated to handle a results dictionary.
     """
     logger.debug(interfolder)
     logger.debug(config)
     noisy_dir = "/Users/mguyot/Documents/Codec_Benchmarks/intermediates_files/2024-05-22_11-55-42"
-    logger.info("shortcut => we go to decode directly")
+    logger.info("Starting decoding process directly due to skip_encode flag.")
     j = 0
     skip_first = True
     for (err_rate, pkg_rep) in itertools.product(error_rate, package_repetition):
-        print(f"\n ({err_rate},{pkg_rep}) \n".format(err_rate, pkg_rep)) 
-        if skip_first :
+        if skip_first:
             skip_first = False
             continue
         decoded_correctly = 0
         j += 1
         for i in range(benchmark["args"]["num_iters"]):
-           decode_iter(config, pkg_rep, err_rate, i, nb_iter, decoded_correctly, j)
-        logger.info("100 decodes done")
-        with open("results.txt", "a") as f:
-            f.write("decoded correctly: " + str(decoded_correctly) + "%\n")
-            f.flush()
-        logger.info("all the decodes are done")
+            decode_iter(config, pkg_rep, err_rate, i, nb_iter, decoded_correctly, j, logger, base_path, interfolder)
+        success_rate = (decoded_correctly / benchmark["args"]["num_iters"]) * 100
+        results[f"benchmark{benchmark['id']}"][f"step_{err_rate}_{pkg_rep}"] = success_rate
+        logger.info(f"Completed decoding: {success_rate}% success rate for error rate {err_rate} and package repetition {pkg_rep}.")
+        logger.info("Completed all decodings for current settings.")
 
 def generate_ini_files(package_repetition, config, interfolder, dict_tmp_interfolder, base_path, logger):
     """
@@ -166,11 +148,10 @@ def pipeline_benchmark(benchmark, config, ff_input, output, base_path, interfold
     with open(config, "r") as f:
         c_file = json.load(f)
     dict_tmp_interfolder = {} #should be a dict of files and the key is the pkg_rep value as a string
-    results = [] # dict of results
-    result = [] # dict of result
-
+    results = {} # dict of results
     for benchmark in b_file["benchmarks"]:
         nb_iter = int(benchmark["args"]["num_iters"])
+        results[f"benchmark{benchmark['id']}"] = {}
         error_rate = np.linspace(benchmark["args"]["error_rate_min"], benchmark["args"]["error_rate_max"], int((benchmark["args"]["error_rate_step"])))
         package_repetition = np.linspace(benchmark["args"]["package_redundancy_min"], benchmark["args"]["package_redundancy_max"], int((benchmark["args"]["package_redundancy_step"])))
         if not skip_encode:
@@ -180,9 +161,11 @@ def pipeline_benchmark(benchmark, config, ff_input, output, base_path, interfold
             logger.info("generate_noisy_fasta_files")
             generate_noisy_fasta_files(error_rate, package_repetition, benchmark, dict_tmp_interfolder, base_path, logger)
             logger.info("all the noisy files are generated => ready for decode")
-        else:
-            decode_step(interfolder, config, error_rate, package_repetition, benchmark, nb_iter, logger)
-    return result
+        logger.info("decode_step")
+        decode_step(interfolder, config, error_rate, package_repetition, benchmark, nb_iter, logger, results, base_path)
+        logger.info("all the decodings are done for this benchmark")
+    logger.info("all the benchmarks are done")
+    return results
 
 def setup_directories(base_path, codec_conf, bench_conf):
     # Generate a unique folder name based on the current timestamp
@@ -242,7 +225,6 @@ def main():
     # parser.add_argument("--default", '-d', dest='default', type=bool, action='store_true', help="default mode")
     args = parser.parse_args()
     base_path = pathlib.Path(__file__).parent.parent.absolute()
-    results = []
     # Set up logger
     logger = logging.getLogger('MyLogger')
     logger.setLevel(logging.DEBUG)  # Capture all levels of messages
