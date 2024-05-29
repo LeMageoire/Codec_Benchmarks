@@ -95,54 +95,65 @@ def decode_step(interfolder, config, error_rate, package_repetition, benchmark, 
             f.flush()
         logging.info("all the decodes are done")
 
-def generate_ini_files(package_repetition, config, interfolder, dict_tmp_interfolder):
+def generate_ini_files(package_repetition, config, interfolder, dict_tmp_interfolder, base_path):
     """
     for every package repetition value we generate an .ini file and a .fasta file
     """
+    venv_path = base_path / '.venv' / 'bin' / 'python'
+    encode_script_path = base_path / 'libraries' / 'Custom-DNA-Aeon' / 'python' / 'encode.py'
+
     for pkg in package_repetition:
-        py_command = ("{path}/.venv/bin/python {path}/libraries/Custom-DNA-Aeon/python/encode.py -c {config}").format(path=".", config=config)
+        py_command = f"{venv_path} {encode_script_path} -c {config}"
         process = subprocess.Popen(py_command.split(" "), stdout=subprocess.PIPE)
         output, error = process.communicate()
         process.wait()
+        
         tmp_interfolder = interfolder / f"pkg_rep_{pkg}"
-        os.mkdir(tmp_interfolder, exist_ok=True)
-        try :
-            shutil.copy("data/encoded.ini", tmp_interfolder / "encode.ini")
-            os.remove("data/encoded.ini")
-        except:
-            print("no .ini to remove")
-        try :
-            shutil.copy("data/encoded.fasta", tmp_interfolder / "encode.fasta")
-            os.remove("data/encoded.fasta")
-        except:
-            print("no .fasta to remove")
+        os.makedirs(tmp_interfolder, exist_ok=True)
+        
+        try:
+            shutil.copy(base_path / "data/encoded.ini", tmp_interfolder / "encode.ini")
+            os.remove(base_path / "data/encoded.ini")
+        except FileNotFoundError:
+            print("No .ini file to remove.")
+        
+        try:
+            shutil.copy(base_path / "data/encoded.fasta", tmp_interfolder / "encode.fasta")
+            os.remove(base_path / "data/encoded.fasta")
+        except FileNotFoundError:
+            print("No .fasta file to remove.")
         dict_tmp_interfolder[str(pkg)] = tmp_interfolder
-        os.mkdir(tmp_interfolder / "noisy", exist_ok=True)
+        os.makedirs(tmp_interfolder / "noisy", exist_ok=True)
 
-def generate_noisy_fasta_files(error_rate, package_repetition, benchmark, dict_tmp_interfolder):
+def generate_noisy_fasta_files(error_rate, package_repetition, benchmark, dict_tmp_interfolder, base_path):
     """
-    
+    Generate noisy FASTA files by applying error rates to encoded FASTA files.
     """
-    for(err_rate, pkg_rep) in itertools.product(error_rate, package_repetition):
+    for err_rate, pkg_rep in itertools.product(error_rate, package_repetition):
         for i in range(benchmark["args"]["num_iters"]):
             f_input = dict_tmp_interfolder[str(pkg_rep)] / "encode.fasta"
-            py_command = ("{path}/.venv/bin/python {path}/simulation_framework.py -c 1 -i {input} -e {err_rate}").format(path=path.joinpath("libraries/fork-jpeg-dna-noise-models/v0.2"), input=f_input, err_rate=err_rate)
+            simulation_framework_path = base_path / 'libraries' / 'fork-jpeg-dna-noise-models' / 'v0.2' / 'simulation_framework.py'
+            py_command = f"{base_path / '.venv' / 'bin' / 'python'} {simulation_framework_path} -c 1 -i {f_input} -e {err_rate}"
             process = subprocess.Popen(py_command.split(" "), stdout=subprocess.PIPE)
             output, error = process.communicate()
             process.wait()
-            py_command = ("{path}/.venv/bin/python {path}/libraries/fork-jpeg-dna-noise-models/scripts/combine_consensus_and_original.py {original} {consensus}").format(path=".", original=f_input, consensus="/Users/mguyot/Documents/Codec_Benchmarks/libraries/jpeg-dna-noise-models/v0.2/output_fasta/consensus/consensus_encode_c1.fasta")
+            
+            combine_script_path = base_path / 'libraries' / 'fork-jpeg-dna-noise-models' / 'scripts' / 'combine_consensus_and_original.py'
+            consensus_path = base_path / 'output_fasta' / 'consensus' / 'consensus_encode_c1.fasta'
+            py_command = f"{base_path / '.venv' / 'bin' / 'python'} {combine_script_path} {f_input} {consensus_path}"
             process = subprocess.Popen(py_command.split(" "), stdout=subprocess.PIPE)
             output, error = process.communicate()
             process.wait()
-            noisy_dir = dict_tmp_interfolder[str(pkg_rep)] / "noisy" / f"noisy_{err_rate}"
-            os.mkdir(noisy_dir, exist_ok=True)
-            noisy_file = "/Users/mguyot/Documents/Codec_Benchmarks/libraries/fork-jpeg-dna-noise-models/v0.2/output_fasta/consensus/combined.fasta"
-            try :
-                shutil.move(noisy_file, noisy_dir / f"noisy_{i}_{err_rate}_{pkg_rep}.fasta")
-            except:
-                print("src file not found so we can't move it")
 
-def pipeline_benchmark(benchmark, config, ff_input, output, path, interfolder, folder_name, debug=False, skip_encode=False):
+            noisy_dir = dict_tmp_interfolder[str(pkg_rep)] / "noisy" / f"noisy_{err_rate}"
+            os.makedirs(noisy_dir, exist_ok=True)
+            noisy_file = base_path / 'output_fasta' / 'consensus' / 'combined.fasta'
+            try:
+                shutil.move(noisy_file, noisy_dir / f"noisy_{i}_{err_rate}_{pkg_rep}.fasta")
+            except FileNotFoundError:
+                print("Source file not found; cannot move it.")
+
+def pipeline_benchmark(benchmark, config, ff_input, output, base_path, interfolder, folder_name, debug=False, skip_encode=False):
     # load the json files
     with open(benchmark, "r") as f:
         b_file = json.load(f)
@@ -157,8 +168,9 @@ def pipeline_benchmark(benchmark, config, ff_input, output, path, interfolder, f
         error_rate = np.linspace(benchmark["args"]["error_rate_min"], benchmark["args"]["error_rate_max"], int((benchmark["args"]["error_rate_step"])))
         package_repetition = np.linspace(benchmark["args"]["package_redundancy_min"], benchmark["args"]["package_redundancy_max"], int((benchmark["args"]["package_redundancy_step"])))
         if not skip_encode:
-            generate_ini_files(package_repetition, config, interfolder, dict_tmp_interfolder)
-            generate_noisy_files()
+            generate_ini_files(package_repetition, config, interfolder, dict_tmp_interfolder, base_path)
+            generate_noisy_fasta_files(error_rate, package_repetition, benchmark, dict_tmp_interfolder, base_path)
+            logging.info("all the noisy files are generated => ready for decode")
         else:
             decode_step(interfolder, config, error_rate, package_repetition, benchmark, nb_iter)
     return result
