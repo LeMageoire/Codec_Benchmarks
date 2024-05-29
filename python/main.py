@@ -103,14 +103,14 @@ def generate_ini_files(package_repetition, config, interfolder, dict_tmp_interfo
     encode_script_path = base_path / 'libraries' / 'Custom-DNA-Aeon' / 'python' / 'encode.py'
 
     for pkg in package_repetition:
+        logging.info(f"Generating ini files for package repetition {pkg}")
         py_command = f"{venv_path} {encode_script_path} -c {config}"
         process = subprocess.Popen(py_command.split(" "), stdout=subprocess.PIPE)
         output, error = process.communicate()
         process.wait()
-        
+        logging.info("encode.py is done")
         tmp_interfolder = interfolder / f"pkg_rep_{pkg}"
         os.makedirs(tmp_interfolder, exist_ok=True)
-        
         try:
             shutil.copy(base_path / "data/encoded.ini", tmp_interfolder / "encode.ini")
             os.remove(base_path / "data/encoded.ini")
@@ -124,27 +124,30 @@ def generate_ini_files(package_repetition, config, interfolder, dict_tmp_interfo
             print("No .fasta file to remove.")
         dict_tmp_interfolder[str(pkg)] = tmp_interfolder
         os.makedirs(tmp_interfolder / "noisy", exist_ok=True)
+        logging.info("ini files are generated")
 
 def generate_noisy_fasta_files(error_rate, package_repetition, benchmark, dict_tmp_interfolder, base_path):
     """
     Generate noisy FASTA files by applying error rates to encoded FASTA files.
     """
     for err_rate, pkg_rep in itertools.product(error_rate, package_repetition):
+        logging.info(f"Generating noisy files for error rate {err_rate} and package repetition {pkg_rep}")
         for i in range(benchmark["args"]["num_iters"]):
+            logging.info(f"Iteration {i}")
             f_input = dict_tmp_interfolder[str(pkg_rep)] / "encode.fasta"
             simulation_framework_path = base_path / 'libraries' / 'fork-jpeg-dna-noise-models' / 'v0.2' / 'simulation_framework.py'
             py_command = f"{base_path / '.venv' / 'bin' / 'python'} {simulation_framework_path} -c 1 -i {f_input} -e {err_rate}"
             process = subprocess.Popen(py_command.split(" "), stdout=subprocess.PIPE)
             output, error = process.communicate()
             process.wait()
-            
+            logging.info("simulation_framework.py is done")
             combine_script_path = base_path / 'libraries' / 'fork-jpeg-dna-noise-models' / 'scripts' / 'combine_consensus_and_original.py'
             consensus_path = base_path / 'output_fasta' / 'consensus' / 'consensus_encode_c1.fasta'
             py_command = f"{base_path / '.venv' / 'bin' / 'python'} {combine_script_path} {f_input} {consensus_path}"
             process = subprocess.Popen(py_command.split(" "), stdout=subprocess.PIPE)
             output, error = process.communicate()
             process.wait()
-
+            logging.info("combine_consensus_and_original.py is done")
             noisy_dir = dict_tmp_interfolder[str(pkg_rep)] / "noisy" / f"noisy_{err_rate}"
             os.makedirs(noisy_dir, exist_ok=True)
             noisy_file = base_path / 'output_fasta' / 'consensus' / 'combined.fasta'
@@ -152,6 +155,7 @@ def generate_noisy_fasta_files(error_rate, package_repetition, benchmark, dict_t
                 shutil.move(noisy_file, noisy_dir / f"noisy_{i}_{err_rate}_{pkg_rep}.fasta")
             except FileNotFoundError:
                 print("Source file not found; cannot move it.")
+            logging.info("noisy file is generated")
 
 def pipeline_benchmark(benchmark, config, ff_input, output, base_path, interfolder, folder_name, debug=False, skip_encode=False):
     # load the json files
@@ -168,7 +172,10 @@ def pipeline_benchmark(benchmark, config, ff_input, output, base_path, interfold
         error_rate = np.linspace(benchmark["args"]["error_rate_min"], benchmark["args"]["error_rate_max"], int((benchmark["args"]["error_rate_step"])))
         package_repetition = np.linspace(benchmark["args"]["package_redundancy_min"], benchmark["args"]["package_redundancy_max"], int((benchmark["args"]["package_redundancy_step"])))
         if not skip_encode:
+            logging.info("generate_ini_files")
             generate_ini_files(package_repetition, config, interfolder, dict_tmp_interfolder, base_path)
+            logging.info("all the ini files are generated")
+            logging.info("generate_noisy_fasta_files")
             generate_noisy_fasta_files(error_rate, package_repetition, benchmark, dict_tmp_interfolder, base_path)
             logging.info("all the noisy files are generated => ready for decode")
         else:
@@ -225,7 +232,25 @@ def main():
     args = parser.parse_args()
     base_path = pathlib.Path(__file__).parent.parent.absolute()
     results = []
-    logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+    # Set up logger
+    logger = logging.getLogger('MyLogger')
+    logger.setLevel(logging.DEBUG)  # Capture all levels of messages
+    # Create handlers
+    file_handler = logging.FileHandler(base_path / "debug/codec_benchmarks.log")
+    file_handler.setLevel(logging.DEBUG)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)  # Or use DEBUG to see everything in the console
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    logger.debug("This is a debug message")
+    logger.info("This is an info message")
+    logger.warning("This is a warning message")
+    logger.error("This is an error message")
+    logger.critical("This is a critical message")
+    exit(0)
     if(args.debug):
        print("\ndefault mode\n")
     with open(str(args.codec_conf), "r") as f:
@@ -234,7 +259,10 @@ def main():
     with open(str(args.bench_conf), "r") as f:
         bench_conf = json.load(f)
     folder_name = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    logging.info("folder name: " + folder_name)
     bench_file, config_file, interfolder, results_folder = setup_directories(base_path, codec_conf, bench_conf)
+    logging.info("directories are set up")
+    logging.info("start the pipeline")
     results = pipeline_benchmark(bench_file, config_file, args.fin, args.fout, base_path, interfolder, folder_name, args.debug)
     print(f"results will be stored in results.json in {results_folder}".format(results_folder))
     with open(results_folder / "results.json", "w") as f:
