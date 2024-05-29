@@ -42,7 +42,9 @@ def decode_iter(config, pkg_rep, err_rate, i, nb_iter, decoded_correctly, j, log
     process.wait()
     temp_config_path.unlink(missing_ok=True)  # Use unlink for pathlib
     compare_script_path = base_path / "python" / "compare_file.py"
-    py_command = f"{python_env_path} {compare_script_path} -r ./data/D -i ./data/tmp/D"
+    data_path = base_path / "data" / "D"
+    data_tmp_path = base_path / "data" / "tmp" / "D"
+    py_command = f"{python_env_path} {compare_script_path} -r {data_path} -i {data_tmp_path}"
     process = subprocess.Popen(py_command.split(" "), stdout=subprocess.PIPE)
     output, error = process.communicate()
     process.wait()
