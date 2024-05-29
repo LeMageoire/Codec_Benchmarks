@@ -23,9 +23,10 @@ def decode_iter(config, pkg_rep, err_rate, i, nb_iter, decoded_correctly, j, log
     
     with open(config_path, "r") as f:
         j_config = json.load(f)
-        j_config["decode"]["NOREC4DNA_config"] = interfolder / f"pkg_rep_{pkg_rep}" / "encode.ini"
-        j_config["decode"]["input"] = interfolder / f"pkg_rep_{pkg_rep}" / "noisy" / f"noisy_{err_rate}" / f"noisy_{i}_{err_rate}_{pkg_rep}.fasta"
-        j_config["decode"]["output"] = base_path / "results" / f"{i}_{err_rate}_{pkg_rep}"
+        intermediate_path = base_path / "Codec_Benchmarks" / "intermediates_files" / "2024-05-22_11-55-42" / f"pkg_rep_{pkg_rep}"
+        j_config["decode"]["NOREC4DNA_config"] = str(intermediate_path / "encode.ini")
+        j_config["decode"]["input"] = str(intermediate_path / "noisy" / f"noisy_{err_rate}" / f"noisy_{i}_{err_rate}_{pkg_rep}.fasta")
+        j_config["decode"]["output"] = str(base_path / "Codec_Benchmarks" / "results" / f"{i}_{err_rate}_{pkg_rep}")
 
     temp_config_path = base_path / "tmp_config.json"
     with open(temp_config_path, "w") as f:
@@ -151,7 +152,8 @@ def pipeline_benchmark(benchmark, config, ff_input, output, base_path, interfold
     results = {} # dict of results
     for benchmark in b_file["benchmarks"]:
         nb_iter = int(benchmark["args"]["num_iters"])
-        results[f"benchmark{benchmark['id']}"] = {}
+        benchmark_id = benchmark.get('id', str(benchmark))
+        results[benchmark_id] = {}
         error_rate = np.linspace(benchmark["args"]["error_rate_min"], benchmark["args"]["error_rate_max"], int((benchmark["args"]["error_rate_step"])))
         package_repetition = np.linspace(benchmark["args"]["package_redundancy_min"], benchmark["args"]["package_redundancy_max"], int((benchmark["args"]["package_redundancy_step"])))
         if not skip_encode:
