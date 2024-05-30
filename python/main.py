@@ -78,7 +78,7 @@ def decode_iter(config, pkg_rep, err_rate, i, nb_iter, decoded_correctly, j, log
         logger.info("No file to remove")
     logger.info("One iteration completed")
 
-def decode_step(interfolder, config, error_rate, package_repetition, benchmark, nb_iter, logger, results, base_path):
+def decode_step(interfolder, config, error_rate, package_repetition, benchmark, nb_iter, logger, results, base_path, benchmark_id):
     """
     Updated to handle a results dictionary.
     """
@@ -93,10 +93,12 @@ def decode_step(interfolder, config, error_rate, package_repetition, benchmark, 
             continue
         decoded_correctly = 0
         j += 1
-        for i in range(benchmark["args"]["num_iters"]):
+        #for i in range(benchmark["args"]["num_iters"]):
+        for i in range(1):
             decode_iter(config, pkg_rep, err_rate, i, nb_iter, decoded_correctly, j, logger, base_path, interfolder)
         success_rate = (decoded_correctly / benchmark["args"]["num_iters"]) * 100
-        results[f"benchmark{benchmark['id']}"][f"step_{err_rate}_{pkg_rep}"] = success_rate
+        step_id = benchmark.get(f"step_{err_rate}_{pkg_rep}", f"step_{err_rate}_{pkg_rep}")
+        results[benchmark_id][step_id] = success_rate
         logger.info(f"Completed decoding: {success_rate}% success rate for error rate {err_rate} and package repetition {pkg_rep}.")
         logger.info("Completed all decodings for current settings.")
 
@@ -186,7 +188,7 @@ def pipeline_benchmark(benchmark, config, ff_input, output, base_path, interfold
             generate_noisy_fasta_files(error_rate, package_repetition, benchmark, dict_tmp_interfolder, base_path, logger)
             logger.info("all the noisy files are generated => ready for decode")
         logger.info("decode_step")
-        decode_step(interfolder, config, error_rate, package_repetition, benchmark, nb_iter, logger, results, base_path)
+        decode_step(interfolder, config, error_rate, package_repetition, benchmark, nb_iter, logger, results, base_path, benchmark_id)
         logger.info("all the decodings are done for this benchmark")
     logger.info("all the benchmarks are done")
     return results
@@ -286,12 +288,17 @@ def main():
             config_file = base_path / "configs" / args.timestamp / "config.json"
             interfolder = base_path / "intermediates_files" / args.timestamp
             results_folder = base_path / "results" / args.timestamp
+            folder_name = args.timestamp
             # Check if the directories exist
             for folder in [bench_file.parent, config_file.parent, interfolder, results_folder]:
                 if not check_directory_exists(folder, logger):
                     logger.error(f"Required folder does not exist: {folder}")
                     sys.exit(1)  
             logger.info("All required directories exist, proceeding with decoding...")
+            corr_codec_conf(codec_conf, base_path)
+            # I have to update the timestamped config file with the correct paths (works)
+            with open(base_path/ "configs" / args.timestamp / "config.json", "w") as f:
+                json.dump(codec_conf, f, indent=4)
             results = pipeline_benchmark(bench_file, config_file, args.fin, args.fout, base_path, interfolder, args.timestamp, logger, args.debug, skip_encode=True)
             logger.info("Decoding completed")
         else:
@@ -305,15 +312,16 @@ def main():
         logger.info(codec_conf)
         bench_file, config_file, interfolder, results_folder = setup_directories(base_path, codec_conf, bench_conf)
         logger.info("directories are set up")
-    logger.info("start the pipeline")
-    results = pipeline_benchmark(bench_file, config_file, args.fin, args.fout, base_path, interfolder, folder_name, logger, args.debug, args.skip_encode)
-    print(f"results will be stored in results.json in {results_folder}".format(results_folder))
+        logger.info("start the pipeline")
+        results = pipeline_benchmark(bench_file, config_file, args.fin, args.fout, base_path, interfolder, folder_name, logger, args.debug, args.skip_encode)
     
+    print(f"results will be stored in results.json in {results_folder}".format(results_folder))
     # Assuming results are stored in JSON
     if results_folder:
         results_path = results_folder / "results.json"
         with open(results_path, "w") as f:
             json.dump(results, f, indent=4)
+            logger.info(f"Results stored in {results_path}")
         logger.info(f"Results will be stored in {results_path}")
 if __name__ == "__main__":
     main()
