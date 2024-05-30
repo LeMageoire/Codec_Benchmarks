@@ -292,6 +292,10 @@ def main():
                     logger.error(f"Required folder does not exist: {folder}")
                     sys.exit(1)  
             logger.info("All required directories exist, proceeding with decoding...")
+            corr_codec_conf(codec_conf, base_path)
+            # I have to update the timestamped config file with the correct paths (works)
+            with open(base_path/ "configs" / args.timestamp / "config.json", "w") as f:
+                json.dump(codec_conf, f, indent=4)
             results = pipeline_benchmark(bench_file, config_file, args.fin, args.fout, base_path, interfolder, args.timestamp, logger, args.debug, skip_encode=True)
             logger.info("Decoding completed")
         else:
