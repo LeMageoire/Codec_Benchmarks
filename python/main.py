@@ -20,23 +20,37 @@ def decode_iter(config, pkg_rep, err_rate, i, nb_iter, decoded_correctly, j, log
     """
     logger.info(f"Iteration: {i}")
     config_path = base_path / config
-    
+    intermediate_path = interfolder / f"pkg_rep_{pkg_rep}"
+    output_path = base_path / "results" / f"{i}_{err_rate}_{pkg_rep}.zip"
+
     with open(config_path, "r") as f:
         j_config = json.load(f)
         intermediate_path = interfolder / f"pkg_rep_{pkg_rep}"
         j_config["decode"]["NOREC4DNA_config"] = str(intermediate_path / "encode.ini")
         j_config["decode"]["input"] = str(intermediate_path / "noisy" / f"noisy_{err_rate}" / f"noisy_{i}_{err_rate}_{pkg_rep}.fasta")
-        j_config["decode"]["output"] = str(base_path / "Codec_Benchmarks" / "results" / f"{i}_{err_rate}_{pkg_rep}")
+        j_config["decode"]["output"] = str(output_path)
 
     temp_config_path = base_path / "tmp_config.json"
     with open(temp_config_path, "w") as f:
         json.dump(j_config, f)
     
+    # Ensure the output directory exists before decoding
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+     # Log the paths being used
+    logger.info(f"Config Path: {config_path}")
+    logger.info(f"Intermediate Path: {intermediate_path}")
+    logger.info(f"Output Path: {output_path}")
+
     python_env_path = base_path / ".venv" / "bin" / "python"
     decode_script_path = base_path / "libraries" / "Custom-DNA-Aeon" / "python" / "decode.py"
-    py_command = f"{python_env_path} {decode_script_path} -c {temp_config_path}"
+    py_command = [python_env_path, decode_script_path, '-c', temp_config_path, '--codec']
+    logger.info(f"py_command: {py_command}")
     logger.info("Calling decode.py")
-    process = subprocess.Popen(py_command.split(" "), stdout=subprocess.PIPE)
+    mode = "sys"
+    if mode == "subprocess":
+        process = subprocess.Popen(py_command, stdout=subprocess.PIPE)
+    elif mode == "sys":
+        process = subprocess.Popen(py_command, stdout=sys.stdout, stderr=sys.stderr)
     output, error = process.communicate()
     logger.info("decode.py is done")
     process.wait()
@@ -44,13 +58,20 @@ def decode_iter(config, pkg_rep, err_rate, i, nb_iter, decoded_correctly, j, log
     compare_script_path = base_path / "python" / "compare_file.py"
     data_path = base_path / "data" / "D"
     data_tmp_path = base_path / "data" / "tmp" / "D"
-    py_command = f"{python_env_path} {compare_script_path} -r {data_path} -i {data_tmp_path}"
-    process = subprocess.Popen(py_command.split(" "), stdout=subprocess.PIPE)
-    output, error = process.communicate()
+    try:
+        open(data_path, 'w').close()
+    except FileNotFoundError:
+        logger.error("Previous Process didn't create the file")
+    py_command = [python_env_path, compare_script_path, '-r', data_path, '-i', data_tmp_path]
+    #process = subprocess.Popen(py_command, stdout=subprocess.PIPE)
+    process = subprocess.Popen(py_command, stdout=sys.stdout, stderr=sys.stderr)
+    #output, error = process.communicate()
     process.wait()
     if process.returncode == 0:
         decoded_correctly += 1
         logger.info(f"Decoded correctly: {decoded_correctly}")
+    else :
+        logger.error("Decoding failed.")
     try:
         (base_path / "data" / "D").unlink()
     except FileNotFoundError:
@@ -88,8 +109,8 @@ def generate_ini_files(package_repetition, config, interfolder, dict_tmp_interfo
 
     for pkg in package_repetition:
         logger.info(f"Generating ini files for package repetition {pkg}")
-        py_command = f"{venv_path} {encode_script_path} -c {config}"
-        process = subprocess.Popen(py_command.split(" "), stdout=subprocess.PIPE)
+        py_command = [venv_path, encode_script_path, '-c', config, '-cd']
+        process = subprocess.Popen(py_command, stdout=subprocess.PIPE)
         output, error = process.communicate()
         process.wait()
         logger.info("encode.py is done")
@@ -124,13 +145,13 @@ def generate_noisy_fasta_files(error_rate, package_repetition, benchmark, dict_t
         for i in range(benchmark["args"]["num_iters"]):
             logger.info(f"Iteration {i}")
             f_input = dict_tmp_interfolder[str(pkg_rep)] / "encode.fasta"
-            py_command = f"{venv_path} {simulation_framework_path} -c 1 -i {f_input} -e {err_rate}"
-            process = subprocess.Popen(py_command.split(" "), stdout=subprocess.PIPE)
+            py_command = [venv_path, simulation_framework_path, '-c', '1', '-i', f_input, '-e', str(err_rate)]
+            process = subprocess.Popen(py_command, stdout=subprocess.PIPE)
             output, error = process.communicate()
             process.wait()
             logger.info("simulation_framework.py is done")
-            py_command = f"{venv_path} {combine_script_path} {f_input} {consensus_path}"
-            process = subprocess.Popen(py_command.split(" "), stdout=subprocess.PIPE)
+            py_command = [venv_path, combine_script_path, f_input, consensus_path]
+            process = subprocess.Popen(py_command, stdout=subprocess.PIPE)
             output, error = process.communicate()
             process.wait()
             logger.info("combine_consensus_and_original.py is done")
@@ -141,7 +162,7 @@ def generate_noisy_fasta_files(error_rate, package_repetition, benchmark, dict_t
                 shutil.move(noisy_file, noisy_dir / f"noisy_{i}_{err_rate}_{pkg_rep}.fasta")
             except FileNotFoundError:
                 print("Source file not found; cannot move it.")
-            logging.info("noisy file is generated")
+            logger.info("noisy file is generated")
 
 def pipeline_benchmark(benchmark, config, ff_input, output, base_path, interfolder, folder_name, logger ,debug=False, skip_encode=False):
     # load the json files
@@ -260,7 +281,7 @@ def main():
         bench_conf = json.load(f)
     if args.skip_encode:
         if args.timestamp:
-            logging.info(f"Using timestamp: {args.timestamp}")
+            logger.info(f"Using timestamp: {args.timestamp}")
             bench_file = base_path / "benchmarks" / args.timestamp / "config.json"
             config_file = base_path / "configs" / args.timestamp / "config.json"
             interfolder = base_path / "intermediates_files" / args.timestamp
@@ -277,7 +298,7 @@ def main():
             logger.error("Timestamp is required when skipping the encoding step.")
             sys.exit(1)
     else:
-        logging.info("as skip_encode is not set, we will encode the file, so we need to create time-stamped directories")
+        logger.info("as skip_encode is not set, we will encode the file, so we need to create time-stamped directories")
         corr_codec_conf(codec_conf, base_path)
         folder_name = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         logger.info("folder name: " + folder_name)
