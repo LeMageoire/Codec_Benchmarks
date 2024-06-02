@@ -19,6 +19,7 @@ def decode_iter(config, pkg_rep, err_rate, i, nb_iter, decoded_correctly, j, log
     Uses the base_path to build file paths, making the function adaptable to any machine.
     """
     logger.info(f"Iteration: {i}")
+    logger.info(f"Decoded correctly: {decoded_correctly}")
     config_path = base_path / config
     intermediate_path = interfolder / f"pkg_rep_{pkg_rep}"
     output_path = base_path / "results" / f"{i}_{err_rate}_{pkg_rep}.zip"
