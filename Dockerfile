@@ -93,15 +93,44 @@ RUN update-alternatives --install /usr/bin/gcc gcc /usr/local/bin/gcc 12 \
 # Set Python 3.9 as the default Python
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.9 1
 
+# Set build arguments
+ARG GITHUB_TOKEN
+ARG GITLAB_TOKEN
+
 # Configure Git to use PATs for authentication
 RUN git config --global url."https://$GITHUB_TOKEN:x-oauth-basic@github.com/".insteadOf "https://github.com/" \
-    && git config --global url."https://oauth2:$GITLAB_TOKEN@oauth2.gitlab.com/".insteadOf "https://gitlab.com/"
+    && git config --global url."https://$GITLAB_TOKEN:x-oauth-basic@gitlab.com/".insteadOf "https://gitlab.com/"
 
-# Clone the repository and submodules using HTTPS with PATs
-RUN git clone --recurse-submodules https://$GITHUB_TOKEN:x-oauth-basic@github.com/LeMageoire/Codec_Benchmarks.git /Codec_Benchmarks
+# Clone the repository
+RUN git clone https://$GITHUB_TOKEN:x-oauth-basic@github.com/LeMageoire/Codec_Benchmarks.git /Codec_Benchmarks
 
-# Set the working directory
+# Navigate to the cloned repository
 WORKDIR /Codec_Benchmarks
+
+# Set build arguments
+ARG GITHUB_TOKEN
+ARG GITLAB_TOKEN
+
+# Configure Git to use PATs for authentication
+RUN git config --global url."https://$GITHUB_TOKEN:x-oauth-basic@github.com/".insteadOf "https://github.com/" \
+    && git config --global url."https://oauth2:$GITLAB_TOKEN@gitlab.com/".insteadOf "https://gitlab.com/"
+
+# Remove the existing directory
+RUN rm -rf /Codec_Benchmarks
+
+# Clone the repository
+RUN git clone https://$GITHUB_TOKEN:x-oauth-basic@github.com/LeMageoire/Codec_Benchmarks.git /Codec_Benchmarks
+
+# Navigate to the cloned repository
+WORKDIR /Codec_Benchmarks
+
+# Update submodule URLs to use tokens
+RUN sed -i "s|https://github.com/LeMageoire/Custom_DNA_Aeon.git|https://$GITHUB_TOKEN:x-oauth-basic@github.com/LeMageoire/Custom_DNA_Aeon.git|g" .gitmodules \
+    && sed -i "s|https://gitlab.com/LeMageoire/jpeg-dna-noise-models.git|https://oauth2:$GITLAB_TOKEN@gitlab.com/LeMageoire/jpeg-dna-noise-models.git|g" .gitmodules \
+    && git submodule sync
+
+# Initialize and update submodules
+RUN git submodule update --init --recursive
 
 # Install the main requirements
 RUN pip3 install --upgrade pip \
