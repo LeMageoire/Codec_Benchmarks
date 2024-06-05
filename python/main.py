@@ -109,6 +109,7 @@ def generate_ini_files(package_repetition, config, interfolder, dict_tmp_interfo
     for every package repetition value we generate an .ini file and a .fasta file
     """
     venv_path = base_path / 'venv' / 'bin' / 'python'
+    venv_path = base_path / 'venv' / 'bin' / 'python'
     encode_script_path = base_path / 'libraries' / 'Custom-DNA-Aeon' / 'python' / 'encode.py'
 
     for pkg in package_repetition:
@@ -141,6 +142,7 @@ def generate_noisy_fasta_files(error_rate, package_repetition, benchmark, dict_t
     """
     for err_rate, pkg_rep in itertools.product(error_rate, package_repetition):
         logger.info(f"Generating noisy files for error rate {err_rate} and package repetition {pkg_rep}")
+        venv_path = base_path / 'libraries' / 'fork-jpeg-dna-noise-models' / 'v0.2' / 'venv' / 'bin' / 'python'
         venv_path = base_path / 'libraries' / 'fork-jpeg-dna-noise-models' / 'v0.2' / 'venv' / 'bin' / 'python'
         simulation_framework_path = base_path / 'libraries' / 'fork-jpeg-dna-noise-models' / 'v0.2' / 'simulation_framework.py'
         lib_path = base_path / 'libraries' / 'fork-jpeg-dna-noise-models' 
