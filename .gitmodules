@@ -1,6 +1,6 @@
 [submodule "libraries/Custom-DNA-Aeon"]
 	path = libraries/Custom-DNA-Aeon
-	url = https://github.com/LeMageoire/Custom_DNA_Aeon.git
+	url = git@github.com:LeMageoire/Custom_DNA_Aeon.git
 [submodule "libraries/fork-jpeg-dna-noise-models"]
 	path = libraries/fork-jpeg-dna-noise-models
-	url = https://gitlab.com/LeMageoire/jpeg-dna-noise-models.git
+	url = git@github.com:LeMageoire/jpeg-dna-noise-models.git
