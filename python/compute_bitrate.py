@@ -1,5 +1,8 @@
 import os
 from collections import Counter
+import argparse
+import pathlib
+import logging
 
 def read_fasta(filename):
     """Reads a FASTA file and returns a dictionary of sequences keyed by sequence header."""
@@ -32,9 +35,28 @@ def file_size_in_bytes(filename):
     return os.path.getsize(filename)
 
 def main():
-    original_text_file = 'data/D'
-    transformed_fasta = 'intermediates_files/2024-05-29_16-32-49/pkg_rep_0.0/noisy/noisy_0.01/noisy_0_0.01_0.0.fasta'
-    original_fasta = 'intermediates_files/2024-06-03_11-57-51/pkg_rep_0.0/noisy/noisy_0.0/noisy_0_0.0_0.0.fasta'
+    """
+    this program outputs the complete nucleotide
+    
+    :param: -i the inputfile (original data in byte)
+    :param: -o the .fasta file 
+    """
+    
+    parser = argparse.ArgumentParser(description="Compute bitrate")
+    parser.add_argument('--input1', '-i', dest='fin_bits', type=str, action='store', required=True, help='str filepath to original data')
+    parser.add_argument('--input2', '-j', dest='fin_fasta',type=str, action='store', required=True, help='str filepath to fasta file')
+    
+    args = parser.parse_args()
+    base_path = pathlib.Path(__file__).parent.parent.absolute()
+    
+    #Set up logger
+    #logger = logging.getLogger('Results')
+    #logger.setLevel(logging.DEBUG)
+    
+    original_text_file = str(base_path / args.fin_bits)
+    transformed_fasta = str(base_path / args.fin_fasta)
+    original_fasta = 'intermediates_files/2024-06-05_17-07-46/pkg_rep_0.0/noisy/noisy_0.0/noisy_0_0.0_0.0.fasta'
+    #'str(base_path / args.fin_fasta)'
 
     # Read sequences from the FASTA file
     fasta_sequences = read_fasta(transformed_fasta)
@@ -47,15 +69,13 @@ def main():
     original_size = 8 * file_size_in_bytes(original_text_file)
     
     print("Original Text File Size in Bits:", original_size)
-    print("Nucleotide Counts in Transformed File:", fasta_counts)
-    print("Nucleotide Counts in Original File:", org_fasta_counts)
     # Calculate and print the total ratio of nucleotides to the original text file size
     total_nucleotides = sum(fasta_counts[nuc] for nuc in 'ACTG' if nuc in fasta_counts)
     total_org_nucleotides = sum(org_fasta_counts[nuc] for nuc in 'ACTG' if nuc in org_fasta_counts)
     print(f"Total Nucleotides in Transformed File: {total_nucleotides}")
     if original_size > 0:
         total_ratio = total_nucleotides / original_size
-        org_total_ratio = (total_org_nucleotides / original_size)/2
+        org_total_ratio = (total_org_nucleotides / original_size)
         total_ratio = total_ratio
         relative_ratio = (abs(total_ratio - org_total_ratio)/org_total_ratio)*100
         print(f"Total Ratio of Nucleotides to Original Text File Size: {total_ratio:.6f}")
