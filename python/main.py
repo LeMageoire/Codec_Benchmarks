@@ -34,6 +34,13 @@ def decode_iter(config, pkg_rep, err_rate, i, nb_iter, decoded_correctly, j, log
     with open(temp_config_path, "w") as f:
         json.dump(j_config, f)
     
+    # Ensure the output directory exists before decoding
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+     # Log the paths being used
+    logger.info(f"Config Path: {config_path}")
+    logger.info(f"Intermediate Path: {intermediate_path}")
+    logger.info(f"Output Path: {output_path}")
+
     python_env_path = base_path / "venv" / "bin" / "python"
     decode_script_path = base_path / "libraries" / "Custom-DNA-Aeon" / "python" / "decode.py"
     py_command = [python_env_path, decode_script_path, '-c', temp_config_path, '--codec']
@@ -72,6 +79,7 @@ def decode_iter(config, pkg_rep, err_rate, i, nb_iter, decoded_correctly, j, log
     logger.info("One iteration completed")
 
 def decode_step(interfolder, config, error_rate, package_repetition, benchmark, nb_iter, logger, results, base_path, benchmark_id):
+def decode_step(interfolder, config, error_rate, package_repetition, benchmark, nb_iter, logger, results, base_path, benchmark_id):
     """
     Updated to handle a results dictionary.
     """
@@ -90,8 +98,10 @@ def decode_step(interfolder, config, error_rate, package_repetition, benchmark, 
         for i in range(1):
             decode_iter(config, pkg_rep, err_rate, i, nb_iter, decoded_correctly, j, logger, base_path, interfolder)
         success_rate = (decoded_correctly / benchmark["args"]["num_iters"]) * 100
-        step_id = benchmark.get(f"step_{err_rate}_{pkg_rep}", f"step_{err_rate}_{pkg_rep}")
-        results[benchmark_id][step_id] = success_rate
+        step_key = f"step_{err_rate}_{pkg_rep}"
+        if step_key not in results[benchmark_id]:
+            results[benchmark_id][step_key] = {}
+        results[benchmark_id][step_key] = success_rate
         logger.info(f"Completed decoding: {success_rate}% success rate for error rate {err_rate} and package repetition {pkg_rep}.")
         logger.info("Completed all decodings for current settings.")
 
@@ -99,6 +109,7 @@ def generate_ini_files(package_repetition, config, interfolder, dict_tmp_interfo
     """
     for every package repetition value we generate an .ini file and a .fasta file
     """
+    venv_path = base_path / 'venv' / 'bin' / 'python'
     venv_path = base_path / 'venv' / 'bin' / 'python'
     encode_script_path = base_path / 'libraries' / 'Custom-DNA-Aeon' / 'python' / 'encode.py'
 
@@ -133,11 +144,13 @@ def generate_noisy_fasta_files(error_rate, package_repetition, benchmark, dict_t
     for err_rate, pkg_rep in itertools.product(error_rate, package_repetition):
         logger.info(f"Generating noisy files for error rate {err_rate} and package repetition {pkg_rep}")
         venv_path = base_path / 'libraries' / 'fork-jpeg-dna-noise-models' / 'v0.2' / 'venv' / 'bin' / 'python'
+        venv_path = base_path / 'libraries' / 'fork-jpeg-dna-noise-models' / 'v0.2' / 'venv' / 'bin' / 'python'
         simulation_framework_path = base_path / 'libraries' / 'fork-jpeg-dna-noise-models' / 'v0.2' / 'simulation_framework.py'
         lib_path = base_path / 'libraries' / 'fork-jpeg-dna-noise-models' 
         combine_script_path = base_path / lib_path / 'scripts' / 'combine_consensus_and_original.py'
         consensus_path = base_path / lib_path / 'v0.2' / 'output_fasta' / 'consensus' / 'consensus_encode_c1.fasta'
-        for i in range(benchmark["args"]["num_iters"]):
+        #for i in range(benchmark["args"]["num_iters"]):
+        for i in range(1):    
             logger.info(f"Iteration {i}")
             f_input = dict_tmp_interfolder[str(pkg_rep)] / "encode.fasta"
             py_command = [venv_path, simulation_framework_path, '-c', '1', '-i', f_input, '-e', str(err_rate)]
@@ -181,6 +194,7 @@ def pipeline_benchmark(benchmark, config, ff_input, output, base_path, interfold
             generate_noisy_fasta_files(error_rate, package_repetition, benchmark, dict_tmp_interfolder, base_path, logger)
             logger.info("all the noisy files are generated => ready for decode")
         logger.info("decode_step")
+        decode_step(interfolder, config, error_rate, package_repetition, benchmark, nb_iter, logger, results, base_path, benchmark_id)
         decode_step(interfolder, config, error_rate, package_repetition, benchmark, nb_iter, logger, results, base_path, benchmark_id)
         logger.info("all the decodings are done for this benchmark")
     logger.info("all the benchmarks are done")
@@ -234,10 +248,14 @@ def check_directory_exists(path, logger):
 
 def main():
     """
-    :param: the input file to process (the file to encode + noisy + decode)
-    :param: the output file to store the results 
-    :param: the config file to load the codec (json file)
-    :param: the benchmarks file to load the benchmarks (json file)
+    :param: -i the input file to process (the file to encode + noisy + decode)
+    :param: -o the output file to store the results 
+    :param: -c the config file to load the codec (json file)
+    :param: -b the benchmarks file to load the benchmarks (json file)
+    :param: -d the debug mode (boolean)
+    :param: -s the skip_encode mode (boolean)
+    :param: -t the timestamp to create the directories
+    :param: -S the skip_decode mode (boolean)
     """
     parser = argparse.ArgumentParser(description="Provide a file to process and store the results in an output file")
     parser.add_argument('--input', '-i', dest='fin', type=str, action='store', help="input file", required=True)
@@ -258,6 +276,10 @@ def main():
     logger = logging.getLogger('MyLogger')
     logger.setLevel(logging.DEBUG)  # Capture all levels of messages
     # Create handlers
+    try :
+        os.makedirs(base_path / "debug")
+    except FileExistsError:
+        pass
     file_handler = logging.FileHandler(base_path / "debug/codec_benchmarks.log")
     file_handler.setLevel(logging.DEBUG)
     console_handler = logging.StreamHandler()
