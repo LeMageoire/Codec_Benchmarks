@@ -8,11 +8,11 @@ def compare_files(file1, file2, chunk_size=1024):
     total_bytes = 0
     mismatched_bytes = 0
 
+    # we have to try catch the fils
     with open(file1, 'rb') as f1, open(file2, 'rb') as f2:
         while True:
             chunk1 = f1.read(chunk_size)
             chunk2 = f2.read(chunk_size)
-            
             # Check if we've reached the end of both files
             if not chunk1 and not chunk2:
                 break
