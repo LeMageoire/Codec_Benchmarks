@@ -79,7 +79,6 @@ def decode_iter(config, pkg_rep, err_rate, i, nb_iter, decoded_correctly, j, log
     logger.info("One iteration completed")
 
 def decode_step(interfolder, config, error_rate, package_repetition, benchmark, nb_iter, logger, results, base_path, benchmark_id):
-def decode_step(interfolder, config, error_rate, package_repetition, benchmark, nb_iter, logger, results, base_path, benchmark_id):
     """
     Updated to handle a results dictionary.
     """
@@ -96,8 +95,6 @@ def decode_step(interfolder, config, error_rate, package_repetition, benchmark, 
         j += 1
         #for i in range(benchmark["args"]["num_iters"]):
         for i in range(1):
-        #for i in range(benchmark["args"]["num_iters"]):
-        for i in range(1):
             decode_iter(config, pkg_rep, err_rate, i, nb_iter, decoded_correctly, j, logger, base_path, interfolder)
         success_rate = (decoded_correctly / benchmark["args"]["num_iters"]) * 100
         step_key = f"step_{err_rate}_{pkg_rep}"
@@ -111,7 +108,6 @@ def generate_ini_files(package_repetition, config, interfolder, dict_tmp_interfo
     """
     for every package repetition value we generate an .ini file and a .fasta file
     """
-    venv_path = base_path / 'venv' / 'bin' / 'python'
     venv_path = base_path / 'venv' / 'bin' / 'python'
     encode_script_path = base_path / 'libraries' / 'Custom-DNA-Aeon' / 'python' / 'encode.py'
 
@@ -146,13 +142,12 @@ def generate_noisy_fasta_files(error_rate, package_repetition, benchmark, dict_t
     for err_rate, pkg_rep in itertools.product(error_rate, package_repetition):
         logger.info(f"Generating noisy files for error rate {err_rate} and package repetition {pkg_rep}")
         venv_path = base_path / 'libraries' / 'fork-jpeg-dna-noise-models' / 'v0.2' / 'venv' / 'bin' / 'python'
-        venv_path = base_path / 'libraries' / 'fork-jpeg-dna-noise-models' / 'v0.2' / 'venv' / 'bin' / 'python'
         simulation_framework_path = base_path / 'libraries' / 'fork-jpeg-dna-noise-models' / 'v0.2' / 'simulation_framework.py'
         lib_path = base_path / 'libraries' / 'fork-jpeg-dna-noise-models' 
         combine_script_path = base_path / lib_path / 'scripts' / 'combine_consensus_and_original.py'
         consensus_path = base_path / lib_path / 'v0.2' / 'output_fasta' / 'consensus' / 'consensus_encode_c1.fasta'
         #for i in range(benchmark["args"]["num_iters"]):
-        for i in range(1):    
+        for i in range(1):
             logger.info(f"Iteration {i}")
             f_input = dict_tmp_interfolder[str(pkg_rep)] / "encode.fasta"
             py_command = [venv_path, simulation_framework_path, '-c', '1', '-i', f_input, '-e', str(err_rate)]
