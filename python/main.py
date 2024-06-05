@@ -96,6 +96,8 @@ def decode_step(interfolder, config, error_rate, package_repetition, benchmark, 
         j += 1
         #for i in range(benchmark["args"]["num_iters"]):
         for i in range(1):
+        #for i in range(benchmark["args"]["num_iters"]):
+        for i in range(1):
             decode_iter(config, pkg_rep, err_rate, i, nb_iter, decoded_correctly, j, logger, base_path, interfolder)
         success_rate = (decoded_correctly / benchmark["args"]["num_iters"]) * 100
         step_key = f"step_{err_rate}_{pkg_rep}"
@@ -172,7 +174,7 @@ def generate_noisy_fasta_files(error_rate, package_repetition, benchmark, dict_t
                 print("Source file not found; cannot move it.")
             logger.info("noisy file is generated")
 
-def pipeline_benchmark(benchmark, config, ff_input, output, base_path, interfolder, folder_name, logger ,debug=False, skip_encode=False):
+def pipeline_benchmark(benchmark, config, ff_input, output, base_path, interfolder, folder_name, logger ,debug=False, skip_encode=False, skip_decode=False):
     # load the json files
     with open(benchmark, "r") as f:
         b_file = json.load(f)
@@ -193,10 +195,11 @@ def pipeline_benchmark(benchmark, config, ff_input, output, base_path, interfold
             logger.info("generate_noisy_fasta_files")
             generate_noisy_fasta_files(error_rate, package_repetition, benchmark, dict_tmp_interfolder, base_path, logger)
             logger.info("all the noisy files are generated => ready for decode")
-        logger.info("decode_step")
-        decode_step(interfolder, config, error_rate, package_repetition, benchmark, nb_iter, logger, results, base_path, benchmark_id)
-        decode_step(interfolder, config, error_rate, package_repetition, benchmark, nb_iter, logger, results, base_path, benchmark_id)
-        logger.info("all the decodings are done for this benchmark")
+        if not skip_decode:
+            logger.info("decode_step")
+            decode_step(interfolder, config, error_rate, package_repetition, benchmark, nb_iter, logger, results, base_path, benchmark_id)
+            logger.info("all the decodings are done for this benchmark")
+        logger.info(f"benchmark {benchmark_id}: {results[benchmark_id]} is done")
     logger.info("all the benchmarks are done")
     return results
 
@@ -314,7 +317,8 @@ def main():
             # I have to update the timestamped config file with the correct paths (works)
             with open(base_path/ "configs" / args.timestamp / "config.json", "w") as f:
                 json.dump(codec_conf, f, indent=4)
-            results = pipeline_benchmark(bench_file, config_file, args.fin, args.fout, base_path, interfolder, args.timestamp, logger, args.debug, skip_encode=True)
+            logger.info("start the pipeline")
+            results = pipeline_benchmark(bench_file, config_file, args.fin, args.fout, base_path, interfolder, args.timestamp, logger, args.debug, skip_encode=True, skip_decode=args.skip_decode)
             logger.info("Decoding completed")
         else:
             logger.error("Timestamp is required when skipping the encoding step.")
@@ -328,8 +332,7 @@ def main():
         bench_file, config_file, interfolder, results_folder = setup_directories(base_path, codec_conf, bench_conf)
         logger.info("directories are set up")
         logger.info("start the pipeline")
-        results = pipeline_benchmark(bench_file, config_file, args.fin, args.fout, base_path, interfolder, folder_name, logger, args.debug, args.skip_encode)
-    
+        results = pipeline_benchmark(bench_file, config_file, args.fin, args.fout, base_path, interfolder, folder_name, logger, args.debug, args.skip_encode, args.skip_decode)
     print(f"results will be stored in results.json in {results_folder}".format(results_folder))
     # Assuming results are stored in JSON
     if results_folder:
