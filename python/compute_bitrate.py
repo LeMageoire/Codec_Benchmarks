@@ -1,6 +1,8 @@
 import os
 from collections import Counter
 import argparse
+import pathlib
+import logging
 
 def read_fasta(filename):
     """Reads a FASTA file and returns a dictionary of sequences keyed by sequence header."""
@@ -55,15 +57,13 @@ def main():
     original_size = 8 * file_size_in_bytes(original_text_file)
     
     print("Original Text File Size in Bits:", original_size)
-    print("Nucleotide Counts in Transformed File:", fasta_counts)
-    print("Nucleotide Counts in Original File:", org_fasta_counts)
     # Calculate and print the total ratio of nucleotides to the original text file size
     total_nucleotides = sum(fasta_counts[nuc] for nuc in 'ACTG' if nuc in fasta_counts)
     total_org_nucleotides = sum(org_fasta_counts[nuc] for nuc in 'ACTG' if nuc in org_fasta_counts)
     print(f"Total Nucleotides in Transformed File: {total_nucleotides}")
     if original_size > 0:
         total_ratio = total_nucleotides / original_size
-        org_total_ratio = (total_org_nucleotides / original_size)/2
+        org_total_ratio = (total_org_nucleotides / original_size)
         total_ratio = total_ratio
         print(f"Total Ratio of Nucleotides to Original Text File Size: {total_ratio:.6f}")
         if not args.noindels:
