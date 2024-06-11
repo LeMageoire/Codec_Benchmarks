@@ -1,5 +1,6 @@
 import os
 from collections import Counter
+import argparse
 
 def read_fasta(filename):
     """Reads a FASTA file and returns a dictionary of sequences keyed by sequence header."""
@@ -32,9 +33,16 @@ def file_size_in_bytes(filename):
     return os.path.getsize(filename)
 
 def main():
-    original_text_file = 'data/D'
-    transformed_fasta = 'intermediates_files/2024-05-29_16-32-49/pkg_rep_0.0/noisy/noisy_0.01/noisy_0_0.01_0.0.fasta'
-    original_fasta = 'intermediates_files/2024-06-03_11-57-51/pkg_rep_0.0/noisy/noisy_0.0/noisy_0_0.0_0.0.fasta'
+    parser = argparse.ArgumentParser(description="Calculate the ratio of nucleotides to the original text file size in [bit/nt]")
+    parser.add_argument('--original', '-o', dest='original_text_file',required=True ,help="Path to the original text file")
+    parser.add_argument('--transformed', '-t', dest='transformed_fasta', required=True, help="Path to the transformed FASTA file (noisy_decoded + successfully decoded)")
+    parser.add_argument('--original_fasta', '-of', dest='original_fasta', required=True, help="Path to the original FASTA file (not noisy)")
+    parser.add_argument('--noindels', '-ni', dest='noindels', action='store_true', help="Ignore indels")
+    args = parser.parse_args()
+
+    original_text_file = args.original_text_file
+    transformed_fasta = args.transformed_fasta
+    original_fasta = args.original_fasta
 
     # Read sequences from the FASTA file
     fasta_sequences = read_fasta(transformed_fasta)
@@ -57,9 +65,10 @@ def main():
         total_ratio = total_nucleotides / original_size
         org_total_ratio = (total_org_nucleotides / original_size)/2
         total_ratio = total_ratio
-        relative_ratio = (abs(total_ratio - org_total_ratio)/org_total_ratio)*100
         print(f"Total Ratio of Nucleotides to Original Text File Size: {total_ratio:.6f}")
-        print(f"Relative Ratio of Nucleotides to Original Text File Size: {relative_ratio:.6f}")
+        if not args.noindels:
+            relative_ratio = (abs(total_ratio - org_total_ratio)/org_total_ratio) * 100
+            print(f"Relative Ratio of Nucleotides to Original Text File Size: {relative_ratio:.6f}")
     else:
         print("Original text file size is zero, cannot calculate ratio.")
 

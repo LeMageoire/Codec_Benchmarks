@@ -70,8 +70,19 @@ def decode_iter(config, pkg_rep, err_rate, i, nb_iter, decoded_correctly, j, log
     if process.returncode == 0:
         decoded_correctly += 1
         logger.info(f"Decoded correctly: {decoded_correctly}")
-    else :
-        logger.error("Decoding failed.")
+        logger.info(f"Decoding successful for iteration {i} with error rate {err_rate} and package repetition {pkg_rep}.")
+        logger.info(f"Now we proceed to computing the bitrate.")
+        python_env_path = base_path / "venv" / "bin" / "python"
+        compute_birate_path = base_path / "python" / "compute_bitrate.py"
+        py_command = [python_env_path, compute_birate_path, '--original', str(base_path / "data" / "tmp" / "D"), '--transformed', str(intermediate_path / "noisy" / f"noisy_{err_rate}" / f"noisy_{i}_{err_rate}_{pkg_rep}.fasta"), '--original_fasta', str(intermediate_path / "encode.fasta", '--noindels')]
+        logger.info(f"py_command: {py_command}")
+        process = subprocess.Popen(py_command, stdout=sys.stdout, stderr=sys.stderr)
+        process.wait()
+        if process.returncode == 0:
+            logger.info("Bitrate computed.")
+        else :
+            logger.error("Compute bitrate failed.")
+        input("Press Enter to continue...")
     try:
         (base_path / "data" / "D").unlink()
     except FileNotFoundError:
@@ -88,13 +99,17 @@ def decode_step(interfolder, config, error_rate, package_repetition, benchmark, 
     j = 0
     skip_first = True
     for (err_rate, pkg_rep) in itertools.product(error_rate, package_repetition):
-        if skip_first:
-            skip_first = False
+        #if skip_first:
+        #    skip_first = False
+        #    continue
+        if not(err_rate == 0.02 and pkg_rep == 0.0) :
+            logging.debug(f"Skipping error rate {err_rate} and package repetition {pkg_rep}")
             continue
+        print(f"Decoding for error rate {err_rate} and package repetition {pkg_rep}")
         decoded_correctly = 0
         j += 1
-        #for i in range(benchmark["args"]["num_iters"]):
-        for i in range(1):
+        for i in range(benchmark["args"]["num_iters"]):
+        #for i in range(1):
             decode_iter(config, pkg_rep, err_rate, i, nb_iter, decoded_correctly, j, logger, base_path, interfolder)
         success_rate = (decoded_correctly / benchmark["args"]["num_iters"]) * 100
         step_key = f"step_{err_rate}_{pkg_rep}"
@@ -115,7 +130,7 @@ def generate_ini_files(package_repetition, config, interfolder, dict_tmp_interfo
     for pkg in package_repetition:
         logger.info(f"Generating ini files for package repetition {pkg}")
         py_command = [venv_path, encode_script_path, '-c', config, '-cd']
-        process = subprocess.Popen(py_command, stdout=subprocess.PIPE)
+        process = subprocess.Popen(py_command, stdout=sys.stdout, stderr=sys.stderr)
         output, error = process.communicate()
         process.wait()
         logger.info("encode.py is done")
@@ -126,7 +141,6 @@ def generate_ini_files(package_repetition, config, interfolder, dict_tmp_interfo
             os.remove(base_path / "data/encoded.ini")
         except FileNotFoundError:
             print("No .ini file to remove.")
-        
         try:
             shutil.copy(base_path / "data/encoded.fasta", tmp_interfolder / "encode.fasta")
             os.remove(base_path / "data/encoded.fasta")
@@ -135,12 +149,15 @@ def generate_ini_files(package_repetition, config, interfolder, dict_tmp_interfo
         dict_tmp_interfolder[str(pkg)] = tmp_interfolder
         os.makedirs(tmp_interfolder / "noisy", exist_ok=True)
         logger.info("ini files are generated")
+        input("Press Enter to continue...")
 
 def generate_noisy_fasta_files(error_rate, package_repetition, benchmark, dict_tmp_interfolder, base_path, logger):
     """
     Generate noisy FASTA files by applying error rates to encoded FASTA files.
     """
     for err_rate, pkg_rep in itertools.product(error_rate, package_repetition):
+        if err_rate != 0.02:
+            continue
         logger.info(f"Generating noisy files for error rate {err_rate} and package repetition {pkg_rep}")
         venv_path = base_path / 'libraries' / 'fork-jpeg-dna-noise-models' / 'v0.2' / 'venv' / 'bin' / 'python'
         venv_path = base_path / 'libraries' / 'fork-jpeg-dna-noise-models' / 'v0.2' / 'venv' / 'bin' / 'python'
@@ -148,8 +165,8 @@ def generate_noisy_fasta_files(error_rate, package_repetition, benchmark, dict_t
         lib_path = base_path / 'libraries' / 'fork-jpeg-dna-noise-models' 
         combine_script_path = base_path / lib_path / 'scripts' / 'combine_consensus_and_original.py'
         consensus_path = base_path / lib_path / 'v0.2' / 'output_fasta' / 'consensus' / 'consensus_encode_c1.fasta'
-        #for i in range(benchmark["args"]["num_iters"]):
-        for i in range(1):
+        for i in range(benchmark["args"]["num_iters"]):
+        #for i in range(1):
             logger.info(f"Iteration {i}")
             f_input = dict_tmp_interfolder[str(pkg_rep)] / "encode.fasta"
             py_command = [venv_path, simulation_framework_path, '-c', '1', '-i', f_input, '-e', str(err_rate)]
@@ -190,9 +207,11 @@ def pipeline_benchmark(benchmark, config, ff_input, output, base_path, interfold
             generate_ini_files(package_repetition, config, interfolder, dict_tmp_interfolder, base_path, logger)
             logger.info("all the ini files are generated")
             logger.info("generate_noisy_fasta_files")
+            input("Press Enter to continue...")
             generate_noisy_fasta_files(error_rate, package_repetition, benchmark, dict_tmp_interfolder, base_path, logger)
             logger.info("all the noisy files are generated => ready for decode")
         if not skip_decode:
+            input("Press Enter to continue...")
             logger.info("decode_step")
             decode_step(interfolder, config, error_rate, package_repetition, benchmark, nb_iter, logger, results, base_path, benchmark_id)
             logger.info("all the decodings are done for this benchmark")
@@ -328,9 +347,9 @@ def main():
         logger.info(codec_conf)
         bench_file, config_file, interfolder, results_folder = setup_directories(base_path, codec_conf, bench_conf)
         logger.info("directories are set up")
-        logger.info("start the pipeline")
+        logger.info(f"calling pipeline_benchmark with {bench_file}, {config_file}, {args.fin}, {args.fout}, {base_path}, {interfolder}, {folder_name}, {logger}, {args.debug}, {args.skip_encode}, {args.skip_decode}")
         results = pipeline_benchmark(bench_file, config_file, args.fin, args.fout, base_path, interfolder, folder_name, logger, args.debug, args.skip_encode, args.skip_decode)
-    print(f"results will be stored in results.json in {results_folder}".format(results_folder))
+    logger.info(f"results will be stored in results.json in {results_folder}".format(results_folder))
     # Assuming results are stored in JSON
     if results_folder:
         results_path = results_folder / "results.json"

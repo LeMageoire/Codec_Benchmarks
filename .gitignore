@@ -1,5 +1,6 @@
 .venv
 .artifacts
+.notes
 results/*
 benchmarks/2024*
 configs/2024*
